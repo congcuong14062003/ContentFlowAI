@@ -12,6 +12,10 @@ import { CreditsModule } from './credits/credits.module';
 import { AiModule } from './ai/ai.module';
 import { GeneratorModule } from './generator/generator.module';
 import { ContentModule } from './content/content.module';
+import { CampaignModule } from './campaigns/campaign.module';
+import { MediaModule } from './media/media.module';
+import { BillingModule } from './billing/billing.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -27,7 +31,7 @@ import { ContentModule } from './content/content.module';
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
       serializers: { req: (req) => ({ id: req.id, method: req.method, url: String(req.url).split('?')[0] }) }
     } }),
-    PlatformModule, IdentityModule, WorkspaceModule, CatalogModule, CreditsModule, AiModule, GeneratorModule, ContentModule
+    PlatformModule, IdentityModule, WorkspaceModule, CatalogModule, CreditsModule, AiModule, GeneratorModule, ContentModule, CampaignModule, MediaModule, BillingModule, AdminModule
   ],
   controllers: [HealthController]
 })

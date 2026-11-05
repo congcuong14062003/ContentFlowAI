@@ -350,7 +350,9 @@ async function openDraft(id: string) { busy.value = true; error.value = ''; try 
         {{ t('generator.draftHint') }}
       </p><p class="generator-copy">
         {{ variationText(draft.body.variation) }}
-      </p>
+      </p><UiButton @click="router.push(`/w/${workspaceId}/content/${draft.id}`)">
+        {{ t('content.editor') }}
+      </UiButton>
     </article>
   </UiDialog>
 </template>

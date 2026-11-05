@@ -6,6 +6,7 @@ import { IdentityService } from '../identity/identity.service';
 import { AuditService } from '../audit/audit.service';
 import { PageQuery, cursorPage, pageRange } from '../common/pagination';
 import { RestoreContentDto, SaveContentDto } from './content-editor.dto';
+import { editorDocumentText, validateEditorDocument } from './editor-document';
 
 @Injectable()
 export class ContentEditorService {
@@ -46,7 +47,9 @@ export class ContentEditorService {
       if (current.version !== dto.expectedVersion) throw new ConflictException({ code: 'CONTENT_VERSION_CONFLICT', currentVersion: current.version });
       const original = current.body as Record<string, unknown>;
       if (original.schemaVersion !== 1 || original.kind !== 'generated_marketing' || typeof original.variation !== 'object' || original.variation === null) throw new ConflictException('Unsupported content format');
-      const body = { ...original, variation: { ...(original.variation as object), mainText: dto.text } } as Prisma.InputJsonValue;
+      const editorDoc = dto.doc === undefined ? original.editorDoc : validateEditorDocument(dto.doc);
+      if (dto.doc !== undefined && editorDocumentText(editorDoc as Prisma.InputJsonValue).replace(/\s+/g, ' ') !== dto.text.trim().replace(/\s+/g, ' ')) throw new ConflictException('Editor text and document differ');
+      const body = { ...original, variation: { ...(original.variation as object), mainText: dto.text }, ...(editorDoc ? { editorDoc } : {}) } as Prisma.InputJsonValue;
       const title = dto.title.trim();
       const changed = await tx.content.updateMany({ where: { workspaceId, id, version: dto.expectedVersion, status: 'DRAFT' }, data: { title, body, version: { increment: 1 } } });
       if (changed.count !== 1) throw new ConflictException({ code: 'CONTENT_VERSION_CONFLICT' });

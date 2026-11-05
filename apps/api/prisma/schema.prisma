@@ -20,9 +20,14 @@ enum WorkspaceRole {
 }
 
 enum ContentStatus {
+  IDEA
   DRAFT
   IN_REVIEW
   APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHED
+  FAILED
   ARCHIVED
 }
 
@@ -88,6 +93,7 @@ model User {
   tokens          UserToken[]
   invitations     Invitation[] @relation("InvitedBy")
   auditEvents     AuditEvent[]
+  contentRevisions ContentRevision[]
 }
 
 model OAuthIdentity {
@@ -143,11 +149,15 @@ model Workspace {
   createdAt     DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
   archivedAt    DateTime?    @db.Timestamptz(3)
+  timezone      String       @default("Asia/Ho_Chi_Minh") @db.VarChar(64)
   memberships   Membership[]
   invitations   Invitation[]
   brands        Brand[]
   products      Product[]
   assets        CatalogAsset[]
+  mediaFolders  MediaFolder[]
+  mediaAssets   MediaAsset[]
+  mediaQuota    MediaQuota?
   entitlement   WorkspaceEntitlement?
   campaigns     Campaign[]
   contents      Content[]
@@ -155,6 +165,8 @@ model Workspace {
   creditAccount CreditAccount?
   subscriptions Subscription[]
   payments      Payment[]
+  invoices      Invoice[]
+  subscriptionEvents SubscriptionEvent[]
   auditEvents   AuditEvent[]
   creditGrants CreditGrant[]
   aiPolicy AiPolicy?
@@ -213,6 +225,7 @@ model Brand {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   contents    Content[]
+  campaigns   Campaign[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, name])
@@ -278,19 +291,67 @@ model CatalogAsset {
   @@index([workspaceId, productId, status])
 }
 
+model MediaQuota {
+  workspaceId String @id @db.Uuid
+  limitBytes BigInt
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+}
+
+model MediaFolder {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  name String @db.VarChar(100)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  assets MediaAsset[]
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, name])
+  @@index([workspaceId, createdAt, id])
+}
+
+model MediaAsset {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  folderId String? @db.Uuid
+  storageKey String @unique @db.VarChar(512)
+  thumbnailKey String? @unique @db.VarChar(512)
+  originalName String @db.VarChar(200)
+  mimeType String @db.VarChar(32)
+  size Int
+  thumbnailSize Int @default(0)
+  width Int
+  height Int
+  tags String[] @default([])
+  source String @default("UPLOAD") @db.VarChar(16)
+  status String @default("PENDING") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  folder MediaFolder? @relation(fields: [workspaceId, folderId], references: [workspaceId, id], onDelete: Restrict)
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status, createdAt, id])
+  @@index([workspaceId, folderId, status])
+}
+
 model Campaign {
   id          String    @id @default(uuid()) @db.Uuid
   workspaceId String    @db.Uuid
   name        String    @db.VarChar(150)
+  objective   String    @default("") @db.VarChar(2000)
+  audiences   String[]  @default([])
+  status      String    @default("PLANNED") @db.VarChar(16)
+  version     Int       @default(1)
+  brandId     String?   @db.Uuid
   startsAt    DateTime? @db.Timestamptz(3)
   endsAt      DateTime? @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  brand       Brand?    @relation(fields: [workspaceId, brandId], references: [workspaceId, id], onDelete: Restrict, map: "Campaign_brandId_fkey")
   contents    Content[]
 
   @@unique([workspaceId, id])
   @@index([workspaceId, createdAt, id])
+  @@index([workspaceId, status, startsAt])
 }
 
 model Content {
@@ -302,6 +363,8 @@ model Content {
   body        Json          @default("{}")
   status      ContentStatus @default(DRAFT)
   version     Int           @default(1)
+  scheduledAt DateTime?     @db.Timestamptz(3)
+  publishedAt DateTime?     @db.Timestamptz(3)
   createdAt   DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
@@ -314,6 +377,7 @@ model Content {
   @@index([workspaceId, status, createdAt, id])
   @@index([workspaceId, brandId])
   @@index([workspaceId, campaignId])
+  @@index([workspaceId, scheduledAt, status])
 }
 
 model ContentRevision {
@@ -326,6 +390,7 @@ model ContentRevision {
   body        Json
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   content     Content  @relation(fields: [workspaceId, contentId], references: [workspaceId, id], onDelete: Restrict)
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@unique([workspaceId, contentId, version])
 }
@@ -552,7 +617,16 @@ model Plan {
   priceMinor    BigInt
   currency      String         @db.Char(3)
   active        Boolean        @default(false)
+  tier          String         @default("FREE") @db.VarChar(16)
+  cadence       String         @default("MONTHLY") @db.VarChar(16)
+  memberLimit   Int            @default(1)
+  brandLimit    Int            @default(1)
+  storageLimitBytes BigInt     @default(104857600)
+  periodCredits BigInt         @default(0)
+  features      String[]       @default([])
+  revision      Int            @default(1)
   subscriptions Subscription[]
+  invoices      Invoice[]
 }
 
 model Subscription {
@@ -563,11 +637,16 @@ model Subscription {
   externalId         String             @db.VarChar(255)
   status             SubscriptionStatus @default(INCOMPLETE)
   currentPeriodEnd   DateTime?          @db.Timestamptz(3)
+  currentPeriodStart DateTime?          @db.Timestamptz(3)
+  graceUntil         DateTime?          @db.Timestamptz(3)
+  cancelAtPeriodEnd  Boolean            @default(false)
   createdAt          DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
   workspace          Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   plan               Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
   payments           Payment[]
+  invoices           Invoice[]
+  events             SubscriptionEvent[]
 
   @@unique([provider, externalId])
   @@unique([workspaceId, id])
@@ -578,6 +657,7 @@ model Payment {
   id             String        @id @default(uuid()) @db.Uuid
   workspaceId    String        @db.Uuid
   subscriptionId String?       @db.Uuid
+  invoiceId      String?       @unique @db.Uuid
   provider       String        @db.VarChar(50)
   externalId     String        @db.VarChar(255)
   amountMinor    BigInt
@@ -587,10 +667,46 @@ model Payment {
   updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
   workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   subscription   Subscription? @relation(fields: [workspaceId, subscriptionId], references: [workspaceId, id], onDelete: Restrict)
+  invoice        Invoice?      @relation(fields: [workspaceId, invoiceId], references: [workspaceId, id], onDelete: Restrict)
 
   @@unique([provider, externalId])
+  @@unique([workspaceId, invoiceId])
   @@index([workspaceId, createdAt, id])
   @@index([workspaceId, subscriptionId])
+}
+
+model Invoice {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  subscriptionId String @db.Uuid
+  planId String @db.Uuid
+  amountMinor BigInt
+  currency String @db.Char(3)
+  status String @default("PENDING") @db.VarChar(16)
+  periodStart DateTime @db.Timestamptz(3)
+  periodEnd DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [workspaceId, subscriptionId], references: [workspaceId, id], onDelete: Restrict)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payment Payment?
+  @@unique([workspaceId, id])
+  @@index([workspaceId, createdAt, id])
+  @@index([workspaceId, subscriptionId])
+}
+
+model SubscriptionEvent {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  subscriptionId String @db.Uuid
+  action String @db.VarChar(32)
+  planId String @db.Uuid
+  periodStart DateTime? @db.Timestamptz(3)
+  periodEnd DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [workspaceId, subscriptionId], references: [workspaceId, id], onDelete: Restrict)
+  @@index([workspaceId, subscriptionId, createdAt, id])
 }
 
 model WebhookEvent {

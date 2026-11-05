@@ -77,12 +77,35 @@ try {
     const initial=await call(contentPath); assert.equal(initial.status,200); assert.equal(initial.data.version,1);
     assert.equal((await call(contentPath,'PUT',{expectedVersion:1,title:'Viewer edit',text:'Denied'},viewer.token)).status,403);
     assert.equal((await call(`/workspaces/${other}/content/${id}`,'GET',undefined,outsider.token)).status,404);
-    const saved=await call(contentPath,'PUT',{expectedVersion:1,title:'Edited title',text:'Edited body'}); assert.equal(saved.status,200,JSON.stringify(saved.error)); assert.equal(saved.data.version,2); assert.equal(saved.data.body.variation.mainText,'Edited body');
+    assert.equal((await call(contentPath,'PUT',{expectedVersion:1,title:'Bad document',text:'No',doc:{type:'doc',content:[{type:'script',text:'attack'}]}})).status,400);
+    const editorDoc={type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Edited body',marks:[{type:'bold'}]}]}]};
+    assert.equal((await call(contentPath,'PUT',{expectedVersion:1,title:'Mismatch',text:'Different text',doc:editorDoc})).status,409);
+    const saved=await call(contentPath,'PUT',{expectedVersion:1,title:'Edited title',text:'Edited body',doc:editorDoc}); assert.equal(saved.status,200,JSON.stringify(saved.error)); assert.equal(saved.data.version,2); assert.equal(saved.data.body.variation.mainText,'Edited body'); assert.deepEqual(saved.data.body.editorDoc,editorDoc);
     assert.equal((await call(contentPath,'PUT',{expectedVersion:1,title:'Stale',text:'Lost'})).status,409);
     const history=await call(`${contentPath}/revisions`); assert.equal(history.status,200); assert.deepEqual(history.data.map(item=>item.version),[2,1]); assert.equal(history.data[0].actorId,owner.id);
     const restored=await call(`${contentPath}/restore`,'POST',{expectedVersion:2,version:1}); assert.equal(restored.status,201,JSON.stringify(restored.error)); assert.equal(restored.data.version,3); assert.equal(restored.data.body.variation.mainText,initial.data.body.variation.mainText);
     assert.equal((await call(contentPath)).data.version,3); assert.equal(await db.contentRevision.count({where:{workspaceId:w,contentId:id}}),3);
     assert.equal((await call(`/workspaces/${w}/content`)).data.items.some(item=>item.id===id),true);
+  });
+  await check('campaign workflow schedules approved content and never auto-publishes',async()=>{
+    const campaignPath=`/workspaces/${w}/campaigns`; const payload={name:'Launch',objective:'Explain sourced product',audiences:['Teams'],brandId:brand,status:'PLANNED',startsAt:'2027-01-01T00:00:00Z',endsAt:'2027-02-01T00:00:00Z'};
+    const created=await call(campaignPath,'POST',payload); assert.equal(created.status,201,JSON.stringify(created.error)); const campaignId=created.data.id;
+    assert.equal((await call(campaignPath,'POST',payload,viewer.token)).status,403);
+    assert.equal((await call(`/workspaces/${other}/campaigns/${campaignId}`,'GET',undefined,outsider.token)).status,404);
+    const updated=await call(`${campaignPath}/${campaignId}`,'PUT',{...payload,name:'Updated launch',expectedVersion:1}); assert.equal(updated.status,200); assert.equal(updated.data.version,2);
+    assert.equal((await call(`${campaignPath}/${campaignId}`,'PUT',{...payload,expectedVersion:1})).status,409);
+    const contentId=(await db.generatedDraft.findFirstOrThrow({where:{workspaceId:w,runId:completed.id,variationIndex:0}})).contentId;
+    const attached=await call(`${campaignPath}/${campaignId}/contents`,'POST',{contentId,expectedVersion:3}); assert.equal(attached.status,201,JSON.stringify(attached.error));
+    const workflow=`/workspaces/${w}/content/${contentId}/workflow`; const schedule=`/workspaces/${w}/content/${contentId}/schedule`;
+    assert.equal((await call(schedule,'PATCH',{expectedVersion:4,scheduledAt:'2027-01-05T09:00:00Z'})).status,409);
+    const reviewing=await call(workflow,'PATCH',{expectedVersion:4,status:'IN_REVIEW'}); assert.equal(reviewing.status,200,JSON.stringify(reviewing.error));
+    assert.equal((await call(workflow,'PATCH',{expectedVersion:5,status:'APPROVED'},viewer.token)).status,403);
+    const approved=await call(workflow,'PATCH',{expectedVersion:5,status:'APPROVED'}); assert.equal(approved.status,200,JSON.stringify(approved.error));
+    const scheduled=await call(schedule,'PATCH',{expectedVersion:6,scheduledAt:'2027-01-05T09:00:00Z'}); assert.equal(scheduled.status,200,JSON.stringify(scheduled.error)); assert.equal(scheduled.data.status,'SCHEDULED'); assert.equal(scheduled.data.publishedAt,null);
+    assert.equal((await call(schedule,'PATCH',{expectedVersion:6,scheduledAt:'2027-01-06T09:00:00Z'})).status,409);
+    const calendar=await call(`/workspaces/${w}/calendar?from=2027-01-01T00%3A00%3A00Z&to=2027-02-01T00%3A00%3A00Z`); assert.equal(calendar.status,200,JSON.stringify(calendar.error)); assert.equal(calendar.data.timezone,'Asia/Ho_Chi_Minh'); assert.equal(calendar.data.items.some(item=>item.id===contentId),true);
+    const published=await call(workflow,'PATCH',{expectedVersion:7,status:'PUBLISHED'}); assert.equal(published.status,200,JSON.stringify(published.error)); assert.ok(published.data.publishedAt);
+    assert.equal((await call(workflow,'PATCH',{expectedVersion:7,status:'PUBLISHED'})).status,409);
   });
   await check('invalid structured output records real provider cost and refunds credits atomically',async()=>{
     const before=(await call(`/workspaces/${w}/credits/balance`)).data.balance; const q=await quote(input('facebook_post',{params:{topic:'INVALID_OUTPUT',postStyle:'educational'}})); const result=await finish((await create(q.id)).id);

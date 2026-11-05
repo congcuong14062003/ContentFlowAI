@@ -51,4 +51,10 @@ export class AiPolicyService {
       await this.audit.record(tx, { actorId, workspaceId, action: 'ai.policy_changed', entityType: 'ai_policy', entityId: result.key, metadata: { ...dto } }); return result;
     });
   }
+  async current(actorId: string, workspaceId?: string) {
+    return this.db.$transaction(async tx => {
+      await this.identity.requireSystemAdmin(tx, actorId);
+      return tx.aiPolicy.findUnique({ where: { key: policyKey(workspaceId) }, select: { key: true, enabled: true, dailyCapMicros: true, requestsPerMinute: true, maxConcurrent: true } });
+    });
+  }
 }

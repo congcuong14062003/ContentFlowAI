@@ -31,5 +31,5 @@ export function validateImage(file?: ImageUpload) {
   } catch { throw invalid(); }
   const suffix = file.originalname.toLowerCase().split('.').at(-1);
   if (!mime || mime !== file.mimetype || !(extension === 'jpg' ? ['jpg', 'jpeg'] : [extension]).includes(suffix ?? '') || width < 1 || height < 1 || width > 4096 || height > 4096) throw invalid();
-  return { mimeType: mime, extension, originalName: file.originalname.replace(/[^\p{L}\p{N} ._-]/gu, '_').slice(-200) };
+  return { mimeType: mime, extension, width, height, originalName: file.originalname.replace(/[^\p{L}\p{N} ._-]/gu, '_').slice(-200) };
 }

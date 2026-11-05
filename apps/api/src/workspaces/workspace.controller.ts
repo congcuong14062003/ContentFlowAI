@@ -3,7 +3,7 @@ import { PageQuery } from '../common/pagination';
 import { AuthGuard, AuthRateGuard, type AuthRequest } from '../identity/auth.guard';
 import { TokenDto } from '../identity/identity.dto';
 import { WorkspaceService } from './workspace.service';
-import { InvitationDto, RoleDto, WorkspaceDto } from './workspace.dto';
+import { InvitationDto, RoleDto, WorkspaceDto, WorkspaceTimezoneDto } from './workspace.dto';
 @Controller('workspaces') @UseGuards(AuthGuard)
 export class WorkspaceController {
   constructor(@Inject(WorkspaceService) private readonly service: WorkspaceService) {}
@@ -11,6 +11,7 @@ export class WorkspaceController {
   @Post() create(@Req() r: AuthRequest, @Body() dto: WorkspaceDto) { return this.service.create(r.principal.id, dto.name, String(r.id)); }
   @Get(':id') get(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string) { return this.service.get(id, r.principal.id); }
   @Patch(':id') update(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Body() dto: WorkspaceDto) { return this.service.update(id, r.principal.id, dto.name, String(r.id)); }
+  @Patch(':id/timezone') timezone(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Body() dto: WorkspaceTimezoneDto) { return this.service.setTimezone(id, r.principal.id, dto.timezone, String(r.id)); }
   @Get(':id/members') members(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Query() query: PageQuery) { return this.service.members(id, r.principal.id, query); }
   @Patch(':id/members/:userId') role(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Param('userId', ParseUUIDPipe) userId: string, @Body() dto: RoleDto) { return this.service.changeRole(id, r.principal.id, userId, dto.role, String(r.id)); }
   @Delete(':id/members/:userId') remove(@Req() r: AuthRequest, @Param('id', ParseUUIDPipe) id: string, @Param('userId', ParseUUIDPipe) userId: string) { return this.service.remove(id, r.principal.id, userId, String(r.id)); }

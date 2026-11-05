@@ -11,6 +11,7 @@ const query = usePagedQuery<{ items: (BrandRecord | ProductRecord)[] }>(() => ['
 const brands = usePagedQuery<{ items: BrandRecord[] }>(() => ['catalog-brand-options', workspaceId.value], () => `${base.value}/brands`, () => props.kind === 'products');
 const allowance = useQuery({ queryKey: computed(() => ['catalog-allowance', workspaceId.value]), queryFn: () => request<{ brandLimit: number; brandsUsed: number }>(`${base.value}/catalog-entitlement`) });
 const options = computed(() => [{ value: '', label: t('catalog.allBrands') }, ...(brands.data.value?.items ?? []).map(b => ({ value: b.id, label: b.name }))]);
+const canCreate = computed(() => canWrite.value && (props.kind === 'products' || !!allowance.data.value && allowance.data.value.brandsUsed < allowance.data.value.brandLimit));
 </script>
 <template>
   <PageHeader
@@ -18,14 +19,14 @@ const options = computed(() => [{ value: '', label: t('catalog.allBrands') }, ..
     :description="t('catalog.intro')"
   >
     <RouterLink
-      v-if="canWrite && (kind === 'products' || allowance.data.value && allowance.data.value.brandsUsed < allowance.data.value.brandLimit)"
+      v-if="canCreate"
       class="button"
       :to="`/w/${workspaceId}/${kind}/new`"
     >＋ {{ t('catalog.create') }}</RouterLink>
   </PageHeader>
   <p
     v-if="kind === 'brands' && allowance.data.value"
-    class="muted"
+    class="catalog-allowance"
   >
     {{ t('catalog.allowance', { used: allowance.data.value.brandsUsed, limit: allowance.data.value.brandLimit }) }}
   </p>
@@ -33,13 +34,21 @@ const options = computed(() => [{ value: '', label: t('catalog.allBrands') }, ..
     class="card stack"
     @submit.prevent="filter"
   >
-    <div class="grid">
+    <div class="catalog-filter">
       <UiInput
         v-model="search"
         :label="t('catalog.search')"
         maxlength="150"
       />
-      <template v-if="kind === 'products'">
+      <UiButton
+        type="submit"
+        variant="secondary"
+      >
+        {{ t('catalog.filter') }}
+      </UiButton>
+    </div>
+    <template v-if="kind === 'products'">
+      <div class="catalog-filter-grid">
         <UiSelect
           v-model="status"
           :label="t('catalog.status')"
@@ -54,24 +63,19 @@ const options = computed(() => [{ value: '', label: t('catalog.allBrands') }, ..
           v-model="category"
           :label="t('catalog.category')"
           maxlength="100"
-        /><UiInput
+        />
+        <UiInput
           v-model="tag"
           :label="t('catalog.tag')"
           maxlength="100"
         />
-      </template>
-    </div><UiLoadMore
-      v-if="kind === 'products'"
-      :has-more="brands.hasNextPage.value"
-      :busy="brands.isFetchingNextPage.value"
-      @next="brands.fetchNextPage()"
-    />
-    <UiButton
-      type="submit"
-      variant="secondary"
-    >
-      {{ t('catalog.filter') }}
-    </UiButton>
+      </div>
+      <UiLoadMore
+        :has-more="brands.hasNextPage.value"
+        :busy="brands.isFetchingNextPage.value"
+        @next="brands.fetchNextPage()"
+      />
+    </template>
   </form>
   <UiState
     v-if="query.isPending.value"
@@ -84,15 +88,23 @@ const options = computed(() => [{ value: '', label: t('catalog.allBrands') }, ..
     retry
     @retry="query.refetch()"
   />
-  <UiState
+  <div
     v-else-if="!query.data.value?.items.length"
-    kind="empty"
-    :description="t('catalog.empty')"
-  />
+    class="card catalog-empty"
+  >
+    <UiState
+      kind="empty"
+      :description="t(applied ? 'catalog.empty' : 'catalog.startEmpty')"
+    />
+    <RouterLink
+      v-if="canCreate && !applied"
+      class="button"
+      :to="`/w/${workspaceId}/${kind}/new`"
+    >＋ {{ t(kind === 'brands' ? 'catalog.createBrand' : 'catalog.createProduct') }}</RouterLink>
+  </div>
   <div
     v-else
-    class="grid"
-    style="margin-top:1.5rem"
+    class="grid catalog-records"
   >
     <article
       v-for="item in query.data.value.items"

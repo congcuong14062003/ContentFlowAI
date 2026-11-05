@@ -13,6 +13,7 @@ export const environmentSchema = z.object({
   REDIS_URL: z.url().refine((v) => /^rediss?:/.test(v), 'Redis URL required'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   DEFAULT_BRAND_LIMIT: z.coerce.number().int().min(0).max(1000).default(1),
+  DEFAULT_STORAGE_QUOTA_BYTES: z.coerce.number().int().min(0).max(10995116277760).default(104857600),
   AI_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   AI_ROUTING_CONFIG: z.string().max(40000).default('{"providers":[],"models":[]}'),
   AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(120000).default(30000),

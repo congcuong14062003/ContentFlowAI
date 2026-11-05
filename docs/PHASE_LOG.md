@@ -1,5 +1,17 @@
 # Phase log
 
+## 2026-11-05 — Phase 11 admin/dashboard checkpoint
+
+Added independent admin shell/routes, genuine PostgreSQL/BullMQ overview and ECharts visualizations, system-admin-protected user search/details/suspension and AI policy/provider/usage operations. No synthetic production metrics or secret fields. Changed: `apps/api/src/admin/*`, `apps/api/src/{app.module.ts,ai/ai-policy.service.ts,ai/ai.controller.ts}`, `apps/web/src/{layouts/AdminShell.vue,features/admin/*,app/router.ts,locales/{vi,en}.ts,styles/tokens.css}`, web/API package manifests and lock, `scripts/test-admin.mjs`, `scripts/test-browser.mjs`, root package scripts and checkpoint docs. Removed unused placeholder `AdminPage.vue`. No database migration.
+
+Checks: final full verify exit0 after all source changes; real isolated PostgreSQL/Redis admin integration 5/5; development Chromium 16/16 including admin desktop/mobile. First admin integration run found a test assertion that mistook `inputTokens` for private `input`; fixed and final 5/5 passed. First desktop-to-mobile browser run asserted before ECharts ResizeObserver settled; final run waits 250 ms and passed. Dev Docker API/web rebuilt; six long-running services healthy, migration/storage-init exited 0, live/ready/web-admin=200, anonymous admin API=401. Phase 11 incomplete; see PHASE_11.md.
+
+## 2026-11-05 — Phase 10 billing-core checkpoint
+
+Implemented additive billing schema/migration 12, idempotent Free or pending paid subscription request, invoices/payment records, admin manual confirmation with evidence and atomic credit grant/entitlements, cancellation records, member invitation limit, protected APIs and connected vi/en billing page. Paid provider and renewal/top-up functionality remain open in PHASE_10.md. Preserved existing migrations and data. Files: `apps/api/prisma/{schema.prisma,seed.ts,migrations/20261105001000_billing_core/migration.sql}`, `apps/api/src/billing/*`, `apps/api/src/{app.module.ts,workspaces/workspace.service.ts,catalog/catalog.service.ts,media/media.service.ts}`, `apps/web/src/{features/billing/BillingPage.vue,app/router.ts,layouts/AppShell.vue,locales/{vi,en}.ts}`, `scripts/test-billing.mjs`, `package.json`, checkpoint docs.
+
+Actual checks: local migration and Prisma schema diff, repeated seed, full verify exit0 with 42 passed/3 skipped tests and five builds, six real PostgreSQL/API billing scenarios passed. No live payment or browser/Docker billing acceptance claimed. Phase 10 not complete; earlier Phase 07–09 gaps unchanged.
+
 ## 2026-11-04 — Phase 00–03 completion / acceptance closure
 
 Closed the outstanding implementation items: source-built pinned official MinIO replaces unavailable prebuilt tags; full normal Docker dependency startup has all six services healthy and migration/bucket jobs exit 0. Real S3 PUT/GET/private access and API readiness=200 passed. Project/Docker/CI now use Node 22.22.2; reviewed compatible lint/test tooling patches and npm audit fix without force leave full/production npm audit at zero findings (also confirmed by cold Docker npm ci).
@@ -86,4 +98,32 @@ User requested editor, campaigns/calendar, media/image studio and billing togeth
 ## 2026-11-05 — Phase 07 revision API integration
 
 Docker Desktop restarted; Compose rebuilt full source, all six long-running services healthy, migration 8 applied and repeat deploy had no pending. Live stack check passed. Added a real PostgreSQL/Redis scenario in scripts/test-generator.mjs for content save, stale version 409, revision restore, VIEWER 403 and cross-workspace 404; generator suite 12/12 passed. API build/typecheck and targeted ESLint passed. Host full verify failed from global npm CLI 6.14.18 recursive workspace script behavior; supported npm inside Docker built successfully. No Phase 07 browser/editor AI acceptance or Phase 08–10 implementation yet.
+
+
+## 2026-11-05 — Phase 07 editor and selected-text AI subphase
+
+Installed TipTap and wired responsive library/editor with revision autosave/conflict/history/restore, copy and text/Markdown export. Added bounded server editor JSON validation and mismatch rejection. Selected-text rewrite/shorten/expand/change tone uses the Phase 06 quote/run gateway and Phase 05 credit engine with explicit estimate confirmation; replacement is guarded against changed document/version. Full npm10 verify passed: zero-warning lint, typechecks, 42 unit/component passed +3 skipped, five builds. Real PostgreSQL/Redis generator suite 12/12 passed. No editor browser test or live paid provider call. Phase 07 is not signed off; PHASE_07.md lists missing acceptance. Phase 08–10 remain unstarted.
+
+
+## 2026-11-05 — Phase 08 campaign/calendar subphase
+
+Implemented two additive enum/table migrations, Campaign CRUD/version/search/filter/content attach API, explicit content workflow/schedule/manual publish, workspace timezone and calendar range API, real campaign list/detail and calendar range UI. First migration failed due PostgreSQL enum commit rule; marked rolled back via Prisma, split and applied both; ten migrations total, schema diff empty. Final verify passed lint/typecheck/42 unit+3 skipped/five builds; generator/campaign integration 13/13 on real PostgreSQL/Redis. No browser QA. Missing assignees/reminder/idempotent delivery/full grids/drag-drop and other PHASE_08.md acceptance; Phase 08 not signed off.
+
+
+## 2026-11-05 — Local FE login connection fix
+
+Corrected stale VITE_API_BASE_URL localhost:3000 to relative /api/v1 in ignored local .env and tracked .env.example; web container recreated only. Vite transformed config shows /api/v1. FE proxy readiness 200 and dummy invalid login through FE proxy returned expected 401, confirming API reachability. No real credentials used.
+
+
+## 2026-11-05 — Campaign UI correction after user screenshot
+
+Removed nested AppShell page padding/max-width that centered Campaign content inside a second page. Added responsive list/create and detail/overview grids, localized campaign status and true empty metadata, real create-content link, compact hierarchy. Verified full build/lint/typecheck/42 unit+3 skipped, 14 development and 13 built SPA/CSP browser scenarios; Campaign persisted and had no horizontal overflow at 1440/390. Screenshots inspected. Web rebuilt/recreated; web and API healthy, FE proxy 200. Phase 08 functional gaps remain.
+
+## 2026-11-05 — Brand/Product layout correction after user screenshot
+
+Restored one AppShell content frame for fragment-based legacy pages without adding nested padding to Campaign/Editor pages. Compacted catalog filters, role/entitlement-aware empty action, aligned workspace pagination, and refined topbar/sidebar and usage badge. No migration or application data mutation. Full verify before final copy change passed zero-warning lint, typechecks, 42 tests +3 skipped and five builds; browser 14 dev /13 built passed with Brand gutter/compact field/mobile checks. Final copy-only locale change passed lint/web build, then web container was rebuilt/recreated and healthy alongside API. Phase 07/08 acceptance remains incomplete.
+
+## 2026-11-05 — Phase 09 Media Library subphase and Brand color validation
+
+Implemented one additive MediaFolder/MediaAsset/MediaQuota migration, private S3 original/Sharp thumbnail lifecycle, quota under workspace lock, authorized folder/tag/search/file/download/delete API, audit and vi/en Vue Media page. Fixed wizard's missing max12 color check; backend already rejected 13. Migration applied, schema diff empty; full verify exit0 (42 passed+3 skipped, five builds), real PostgreSQL/MinIO media integration 6/6, browser dev 15/15 including Brand color rejection and Media upload/download/delete/no-overflow. Later media card layout passed targeted lint/web build. No image generation or design studio. Phase 10 requested afterward; PHASE_09.md lists remaining work.
 

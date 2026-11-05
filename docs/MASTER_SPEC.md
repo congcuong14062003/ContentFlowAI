@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Approved request: Phase 00–10. Phase 05 is AI Provider Gateway & Credit Engine; Phase 06 adds the twelve-tool AI Content Generator. The user now requests Phase 07 editor, 08 campaigns/calendar, 09 media/image studio and 10 subscriptions/billing. Implement in safe dependent subphases; completion status and actual evidence are in PROJECT_STATE. Phase 07 content revision API foundation is in progress; later phases are not implemented yet.
+Approved request: Phase 00–11. Phase 05 is AI Provider Gateway & Credit Engine; Phase 06 adds the twelve-tool AI Content Generator. The user requested Phase 07 editor, 08 campaigns/calendar, 09 media/image studio, 10 subscriptions/billing and 11 admin/AI operations. Implement in safe dependent subphases; completion status and actual evidence are in PROJECT_STATE. Phase 07 content revision and TipTap/selected-text AI foundation is in progress; remaining acceptance is tracked in PHASE_07.md. Phase 08 campaign/calendar foundation is in progress. Phase 09 Media Library is a verified subphase; Image Generator and Design Studio remain in PHASE_09.md. Phase 10 subscription/manual-billing core and Phase 11 admin/dashboard core are verified subphases; remaining scope is in PHASE_10.md and PHASE_11.md.
 
 ## Fixed stack
 
@@ -25,13 +25,14 @@ Dependency direction: controller -> application service -> domain policy -> repo
 | identity | users, password/token/session/OAuth lifecycle | none |
 | workspaces | membership, invitations, role policy | identity public identity lookup |
 | catalog | brands/guidelines, products/associations, owned assets, brand entitlement | workspaces public authorization |
-| content | documents/immutable revisions; minimal generated-draft create/read implemented, advanced editor/approval future | workspaces/identity public authorization |
+| media | workspace media folders/assets, private storage, quota and thumbnails | workspaces public authorization, platform storage |
+| content | documents/immutable revisions; generated-draft create/read and draft revision editor in progress; approval future | workspaces/identity public authorization |
 | generator | tools, quoted source/pricing snapshots, generation runs, saved variation links | workspaces/identity, catalog context, AI gateway, credit reads, content drafts |
 | campaigns | campaign lifecycle, content association | workspaces, content public operations |
 | ai | provider adapters, routing, immutable intents/usage, policies, spend buckets, health | workspaces/identity public authorization, catalog public context, credits financial primitives |
 | credits | account, expiring grants, allocations, reservation, append-only ledger | workspaces/identity public authorization |
-| billing | plan/subscription/payment, verified webhooks | workspaces, credits |
-| administration | separate `/admin`, audited system actions | explicit feature administration interfaces |
+| billing | plan versions, subscriptions, invoices/payments and lifecycle; manual audited confirmation implemented, verified webhooks pending | workspaces, identity, credits, catalog and media public entitlement services |
+| administration | separate `/admin` layout, cross-domain read-only aggregate projection, user suspension/audit | identity authorization, AI/Billing public service boundaries; direct Prisma joins only for the admin read model |
 | audit/outbox | durable events and delivery | no feature imports |
 | platform | configuration, database, Redis, storage, logging | none |
 

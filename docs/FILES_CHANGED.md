@@ -1,5 +1,9 @@
 # Files changed through Phase 00–06 completion
 
+Phase 11 admin/dashboard additions: `apps/api/src/admin/{admin.dto.ts,admin.service.ts,admin.controller.ts,admin.module.ts}`, `apps/web/src/layouts/AdminShell.vue`, `apps/web/src/features/admin/{AdminChart.vue,AdminOverview.vue,AdminUsers.vue,AdminAi.vue}`, `scripts/test-admin.mjs`, `docs/PHASE_11.md`. Updated: API app/AI policy/AI controller and package, web router/locales/styles/package, root scripts/lock and browser QA, checkpoint docs. Removed unused `apps/web/src/features/admin/AdminPage.vue`. Earlier phase file inventories remain in their respective notes.
+
+Phase 10 billing-core additions: `apps/api/prisma/migrations/20261105001000_billing_core/migration.sql`, `apps/api/src/billing/{billing.dto.ts,billing.service.ts,billing.controller.ts,billing.module.ts}`, `apps/web/src/features/billing/BillingPage.vue`, `scripts/test-billing.mjs`, `docs/PHASE_10.md`. Updated: Prisma schema/seed, API app/workspace/catalog/media services, web router/AppShell/vi/en locales, root package.json and checkpoint docs. Earlier Phase 07–09 file inventories remain in their phase notes and Git status.
+
 Project began empty. PHASE_LOG.md groups implementation changes by phase and records real checks. This maintained inventory excludes secrets, dependencies, QA artifacts and generated build output.
 
 ```text
@@ -330,4 +334,123 @@ Explicit phase inventory (includes checkpoint updates; no dependency or lockfile
 - docs/FILES_CHANGED.md
 
 - scripts/test-generator.mjs # Phase 07 integration scenario
+
+
+## Phase 07 editor subphase (2026-11-05)
+
+- apps/api/src/content/editor-document.ts
+- apps/api/src/content/content-editor.dto.ts
+- apps/api/src/content/content-editor.service.ts
+- apps/web/package.json
+- package-lock.json
+- apps/web/src/features/content/ContentLibrary.vue
+- apps/web/src/features/content/ContentEditor.vue
+- apps/web/src/features/content/markdown.ts
+- apps/web/src/app/router.ts
+- apps/web/src/layouts/AppShell.vue
+- apps/web/src/features/generator/GeneratorPage.vue
+- apps/web/src/locales/en.ts
+- apps/web/src/locales/vi.ts
+- apps/web/src/styles/tokens.css
+- scripts/test-generator.mjs
+- docs/PHASE_07.md
+- docs/PROJECT_STATE.md
+- docs/NEXT_TASK.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
+
+
+## Phase 08 campaign/calendar subphase (2026-11-05)
+
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20261105000800_campaign_calendar/migration.sql
+- apps/api/prisma/migrations/20261105000801_campaign_calendar_tables/migration.sql
+- apps/api/src/campaigns/campaign.dto.ts
+- apps/api/src/campaigns/campaign.service.ts
+- apps/api/src/campaigns/campaign.controller.ts
+- apps/api/src/campaigns/campaign.module.ts
+- apps/api/src/campaigns/social-publishing.adapter.ts
+- apps/api/src/app.module.ts
+- apps/api/src/workspaces/workspace.dto.ts
+- apps/api/src/workspaces/workspace.controller.ts
+- apps/api/src/workspaces/workspace.service.ts
+- apps/web/src/features/campaigns/CampaignsPage.vue
+- apps/web/src/features/campaigns/CampaignDetail.vue
+- apps/web/src/features/campaigns/CalendarPage.vue
+- apps/web/src/app/router.ts
+- apps/web/src/layouts/AppShell.vue
+- apps/web/src/locales/en.ts
+- apps/web/src/locales/vi.ts
+- scripts/test-generator.mjs
+- docs/PHASE_08.md
+- docs/MASTER_SPEC.md
+- docs/PROJECT_STATE.md
+- docs/NEXT_TASK.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
+
+
+## Local connectivity fix (2026-11-05)
+
+- .env.example
+- docs/PROJECT_STATE.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
+
+Ignored local .env also updated; it is not tracked or shared.
+
+
+## Campaign UI correction (2026-11-05)
+
+- apps/web/src/layouts/AppShell.vue
+- apps/web/src/styles/tokens.css
+- apps/web/src/features/campaigns/CampaignDetail.vue
+- apps/web/src/features/campaigns/CampaignsPage.vue
+- apps/web/src/locales/en.ts
+- apps/web/src/locales/vi.ts
+- scripts/test-browser.mjs
+- docs/PROJECT_STATE.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
+
+## Brand/Product UI correction (2026-11-05)
+
+- apps/web/src/layouts/AppShell.vue
+- apps/web/src/features/catalog/CatalogList.vue
+- apps/web/src/styles/tokens.css
+- apps/web/src/locales/vi.ts
+- apps/web/src/locales/en.ts
+- scripts/test-browser.mjs
+- docs/PROJECT_STATE.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
+
+## Phase 09 Media Library subphase and Brand validation (2026-11-05)
+
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20261105000900_media_library/migration.sql
+- apps/api/src/media/media.dto.ts
+- apps/api/src/media/media.service.ts
+- apps/api/src/media/media.controller.ts
+- apps/api/src/media/media.module.ts
+- apps/api/src/catalog/image-validation.ts
+- apps/api/src/config/environment.ts
+- apps/api/src/app.module.ts
+- apps/api/package.json
+- apps/web/src/features/media/MediaPage.vue
+- apps/web/src/features/catalog/BrandPage.vue
+- apps/web/src/app/router.ts
+- apps/web/src/layouts/AppShell.vue
+- apps/web/src/locales/vi.ts
+- apps/web/src/locales/en.ts
+- apps/web/src/styles/tokens.css
+- scripts/test-media.mjs
+- scripts/test-browser.mjs
+- .env.example
+- package.json
+- package-lock.json
+- docs/PHASE_09.md
+- docs/PROJECT_STATE.md
+- docs/PHASE_LOG.md
+- docs/FILES_CHANGED.md
 

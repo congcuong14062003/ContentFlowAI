@@ -9,7 +9,7 @@ const workspaces = usePagedQuery<{ items: { role: string; workspace: { id: strin
 const options = computed(() => (workspaces.data.value?.items ?? []).map((item) => ({ value: item.workspace.id, label: item.workspace.name })));
 const activeWorkspace = computed(() => String(route.params.workspaceId ?? route.query.workspaceId ?? ''));
 const selected = computed({ get: () => activeWorkspace.value, set: async (value: string | string[]) => { if (typeof value !== 'string') return; await queryClient.cancelQueries(); queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'workspaces' }); await router.push(route.path === '/app/create' ? { path: '/app/create', query: { workspaceId: value } } : `/w/${value}/settings`); } });
-const links = computed(() => route.meta.admin ? [{ to: '/admin', label: t('nav.admin') }, { to: '/workspaces', label: t('nav.workspaces') }] : [{ to: activeWorkspace.value ? `/app/create?workspaceId=${activeWorkspace.value}` : '/app/create', label: t('generator.title') }, { to: '/workspaces', label: t('nav.workspaces') }, { to: '/settings', label: t('nav.settings') }, ...(activeWorkspace.value ? [{ to: `/w/${activeWorkspace.value}/brands`, label: t('catalog.brands') }, { to: `/w/${activeWorkspace.value}/products`, label: t('catalog.products') }, { to: `/w/${activeWorkspace.value}/credits`, label: t('credits.title') }, { to: `/w/${activeWorkspace.value}/settings`, label: t('nav.workspace') }] : []), ...(session.user?.systemRole === 'SUPER_ADMIN' ? [{ to: '/admin', label: t('nav.admin') }] : [])]);
+const links = computed(() => route.meta.admin ? [{ to: '/admin', label: t('nav.admin') }, { to: '/workspaces', label: t('nav.workspaces') }] : [{ to: activeWorkspace.value ? `/app/create?workspaceId=${activeWorkspace.value}` : '/app/create', label: t('generator.title') }, { to: '/workspaces', label: t('nav.workspaces') }, { to: '/settings', label: t('nav.settings') }, ...(activeWorkspace.value ? [{ to: `/w/${activeWorkspace.value}/campaigns`, label: t('campaign.title') }, { to: `/w/${activeWorkspace.value}/calendar`, label: t('calendar.title') }, { to: `/w/${activeWorkspace.value}/content`, label: t('content.library') }, { to: `/w/${activeWorkspace.value}/media`, label: t('nav.media') }, { to: `/w/${activeWorkspace.value}/brands`, label: t('catalog.brands') }, { to: `/w/${activeWorkspace.value}/products`, label: t('catalog.products') }, { to: `/w/${activeWorkspace.value}/credits`, label: t('credits.title') }, { to: `/w/${activeWorkspace.value}/billing`, label: t('billing.title') }, { to: `/w/${activeWorkspace.value}/settings`, label: t('nav.workspace') }] : []), ...(session.user?.systemRole === 'SUPER_ADMIN' ? [{ to: '/admin', label: t('nav.admin') }] : [])]);
 async function logout() { busy.value = true; try { await session.logout(); await router.push('/login'); } catch (error) { toast(t(errorKey(error))); } finally { busy.value = false; } }
 </script>
 <template>
@@ -75,25 +75,26 @@ async function logout() { busy.value = true; try { await session.logout(); await
       </div>
       <div
         v-if="options.length"
-        class="page"
-        style="padding-bottom: 0; padding-top: 1rem; max-width: 400px; margin-left: 0"
+        class="workspace-context"
       >
         <UiSelect
           v-model="selected"
           :label="t('nav.workspaces')"
           :options="options"
         />
+        <UiLoadMore
+          :has-more="workspaces.hasNextPage.value"
+          :busy="workspaces.isFetchingNextPage.value"
+          @next="workspaces.fetchNextPage()"
+        />
       </div>
-      <UiLoadMore
-        :has-more="workspaces.hasNextPage.value"
-        :busy="workspaces.isFetchingNextPage.value"
-        @next="workspaces.fetchNextPage()"
-      />
       <main
         id="main"
-        class="page"
+        class="app-main"
       >
-        <RouterView />
+        <div class="app-content">
+          <RouterView />
+        </div>
       </main>
     </div>
   </div>

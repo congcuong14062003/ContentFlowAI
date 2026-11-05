@@ -2,6 +2,48 @@
 
 Updated: 2026-11-05 (Asia/Saigon).
 
+## 2026-11-05 Phase 11 admin/AI-operations subphase
+
+Phase 11 was requested. Dedicated `/admin` layout and routes, live cross-domain overview/ECharts, filtered user/AI logs, user detail/suspension/restoration and global AI policy/provider health UI/API are implemented. Backend authorization is SUPER_ADMIN; mutations require audit and user suspension revokes sessions. `PHASE_11.md` records contracts and remaining work. Phase 11 is **incomplete**: provider/model/pricing configuration workflow, all business queues and durable notifications, richer filters, admin billing UI, mutation browser QA and built SPA acceptance remain. Prior Phase 07–10 gaps remain unchanged.
+
+Actual evidence: final full `verify` passed after all source changes (42 unit/component passed +3 skipped, five builds, zero-warning lint and all typechecks). Real PostgreSQL/Redis/API admin integration 5/5; development Chromium 16/16 including actual `/admin` desktop/mobile screenshots and no stable-layout overflow. Dev Docker API/web rebuilt and healthy with no volume deletion; live/ready/web-admin returned 200 and unauthenticated admin overview returned 401. No new migration, paid vendor call or hosted CI claim.
+
+## 2026-11-05 Phase 10 billing-core subphase
+
+Phase 10 was requested and the safe billing-core slice is implemented: additive migration 12, plan versions/limits, idempotent free and pending-paid subscription requests, invoices/payments, admin evidence-based manual confirmation with one transactional subscription credit grant and audit, pending cancellation and scheduled active cancellation, member invitation limit, tenant-scoped APIs and vi/en billing page. Starter/Pro/Team have no invented seed prices. `PHASE_10.md` has exact contracts and remaining work. Phase 10 remains **incomplete**: provider/webhook/checkout, renewal/expiry/grace, upgrades/downgrades, top-ups/refunds, unified storage quota, admin UI and browser acceptance are pending. Phase 07–09 remain incomplete as previously recorded.
+
+Actual evidence: migration deployed locally and in isolated test schema; schema diff showed no difference. Seed ran twice. Full `verify` exit0 (zero-warning lint, all typechecks, 42 unit/component passed +3 skipped, five builds). Billing integration 6/6 against real PostgreSQL/HTTP API after final changes. No payment vendor credentials, external money transfer, live webhook, billing browser run, Docker rebuild or hosted CI test claimed. No new known failing gate; the missing acceptance above is unresolved.
+
+## 2026-11-05 Phase 09 Media Library subphase
+
+Phase 09 requested; only its Media Library slice is implemented. Added a private workspace-scoped S3 media API and Vue page with folders, tags, search/filter/pagination, real Sharp thumbnails, metadata, authorized upload/download/delete, quota/usage and audit. Migration 11 applied; Prisma live schema diff empty. Full verify passed 42 tests +3 skipped/five builds; real PostgreSQL/MinIO media integration 6/6 and development browser 15/15 including new Media flow. A final card-layout-only change passed lint/web build after browser QA. Sharp 0.35.5 install reported zero vulnerabilities. Phase 09 Image Generator and Design Studio remain unimplemented; `PHASE_09.md` records the boundary. The user has since authorized Phase 10; no Phase 10 completion is claimed here.
+
+The preceding Brand Kit 13-color validation defect is fixed in the wizard: backend max12 was already enforced, frontend now gives a localized error before advancing. The 15-scenario browser QA exercised invalid 13 colors then a valid save.
+
+## 2026-11-05 Brand/Product UI correction after user screenshot
+
+The Campaign AppShell fix exposed a legacy layout dependency: catalog pages render fragments and no longer received the shared content gutter. AppShell now owns one bounded content frame; pages with their own `.page` root have nested padding removed. Brand/Product search and filters are compact and responsive, empty states offer real creation links only when permitted by role/entitlement, workspace pagination stays aligned with its selector, and the topbar/sidebar spacing was refined. No catalog API or data was changed. Full verify passed after the structural changes (42 tests passed, 3 skipped, five builds); targeted lint/web build also passed after the final copy change. Browser QA passed 14/14 development and 13/13 built SPA/CSP scenarios with new Brand list gutter/field-width and 390px no-overflow assertions. Final dev screenshot was inspected. The final copy-only empty-state localization change was not rerun through the full suite. Web container was rebuilt/recreated and healthy; API healthy. Phase 07/08 functional gaps remain open.
+
+## 2026-11-05 Campaign UI correction after user review
+
+User identified excessive whitespace and weak hierarchy in the live Campaign screenshot. Removed duplicate AppShell/page width and padding, rebuilt Campaign list/detail as responsive paired panels, localized real status labels, added an actual generator link from empty campaign content, and improved unset metadata. QA screenshots for desktop/mobile were inspected under ignored .local/qa. Final verify passed: Prisma generation, zero-warning lint, all typechecks, 42 unit/component passed +3 opt-in skipped, five builds. Browser suite passed 14/14 development and 13/13 built SPA/CSP, including new Campaign persistence and 1440/390 no-overflow checks. First browser run reached the new Campaign case but failed the following legacy scenario because the new case left the route on Campaign; it now returns to workspace settings and both final suites pass. Stack was temporarily stopped externally during QA; rebuilt safely without volume deletion. Latest web container and API are healthy; web and FE proxy return 200. Phase 08 functional gaps in PHASE_08.md remain open.
+
+## 2026-11-05 local login connectivity fix
+
+The development .env still pointed VITE_API_BASE_URL to localhost:3000 after API_HOST_PORT moved to 53000. Changed .env and .env.example to relative /api/v1, recreated only the web container, and verified Vite serves that base. FE proxy readiness returned 200; a dummy invalid login sent through the FE proxy reached the API and returned an expected HTTP 401 rather than a network error. Six long-running services remain healthy; migrate/storage-init exited 0. No real user credentials were used in testing.
+
+## Phase 08 campaign/calendar subphase (2026-11-05)
+
+Campaign CRUD/search/filter/version, same-workspace brand and content binding, workflow transition/scheduling/manual publish policies, workspace IANA timezone and calendar range API were implemented with tenant RBAC/audit. FE campaign list/detail and calendar range views call real APIs. PHASE_08.md has contracts and missing acceptance. Phase 08 is incomplete: assignees, reminder idempotency, full grids/drag-drop, calendar content creation, publishing copy/download and browser QA are pending. The campaign service currently crosses the Content persistence boundary and needs refactor before signoff. Phase 09–10 unstarted.
+
+Migration attempt hit PostgreSQL enum commit rule; Prisma marked the failed attempt rolled back. Split enum/table migrations then applied successfully; ten migrations total and schema diff no difference. Final verify exit0: Prisma generation, zero-warning lint, all typechecks, 42 passed +3 skipped unit/component, five builds. test-generator 13/13 on real PostgreSQL/Redis/local HTTP fixture, including campaign workflow/authorization/tenant/version. No Phase 08 browser acceptance or latest Docker image rebuild claimed.
+
+## Phase 07 editor subphase (2026-11-05)
+
+TipTap StarterKit, responsive outline/editor/assistant page and content library are connected to the Content API. Autosave 900 ms, optimistic version conflict protection, history/restore, undo/redo, preview, copy/text/Markdown export and vi/en are implemented. Validated bounded editor JSON is persisted with each revision; mismatched text/document is rejected. Selected-text AI rewrite/shorten/expand/change tone uses server quote and Generator run through the existing Credit Engine, explicit max-hold confirmation and unchanged-document check before replacing only the selection. Saved generator drafts open in the editor. See PHASE_07.md. Phase 07 remains incomplete: duplicate, tags, template, library filters, status controls, platform-specific preview, CTA/hashtag suggestions and browser acceptance are pending. No Phase 08–10 work started.
+
+Actual checks: npm 10.9.7 copied from the pinned Node 22 Docker image was used locally (ignored .local/npm); full verify exit 0, zero-warning lint, all typechecks, 42 passed + 3 skipped unit/component tests and five builds. Generator integration 12/12 passed against real PostgreSQL/Redis/local HTTP fixture, covering revision conflict/restore/tenant/RBAC and valid/invalid/mismatched editor JSON. Migration 8 applied/repeated earlier. No browser autosave/AI-edit test and no live paid provider call.
+
 ## Phase 07–10 authorized; Phase 07 revision foundation in progress
 
 The user authorized all four phases in one request. The first safe slice adds an additive ContentRevision migration with title/actor attribution and a tenant-scoped content list/read/revisions/save/restore API. Save and restore require an expected version and create a new immutable revision/audit entry in the same database transaction. Generated draft version 1 now records title/actor. This is backend foundation only, not Phase 07 acceptance. No Phase 08–10 business code has been started.

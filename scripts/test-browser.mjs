@@ -57,6 +57,25 @@ try {
     try { await Promise.all([page.reload(), second.goto(workspaceUrl)]); await Promise.all([page.getByRole('heading', { name: 'Browser verified workspace' }).waitFor(), second.getByRole('heading', { name: 'Browser verified workspace' }).waitFor()]); assert.equal(await testDb.auditEvent.count({ where: { action: 'identity.refresh_replay' } }), 0); }
     finally { await second.close(); }
   });
+  await check('campaign pages use a balanced desktop and mobile layout with real persistence', async () => {
+    const workspacePath = new URL(page.url()).pathname.replace(/\/settings$/, '');
+    await page.goto(`${webOrigin}${workspacePath}/campaigns`);
+    await page.getByRole('heading', { name: 'Campaigns', exact: true }).waitFor();
+    await page.getByLabel('Campaign name', { exact: true }).fill('Autumn launch');
+    await page.getByLabel('Objective', { exact: true }).fill('Introduce the verified product');
+    await page.getByRole('button', { name: 'Create campaign', exact: true }).click();
+    await page.waitForURL(/\/campaigns\/[a-f0-9-]{36}$/);
+    await page.getByRole('heading', { name: 'Autumn launch', exact: true }).waitFor();
+    await page.locator('.campaign-overview').getByText('Planned', { exact: true }).waitFor();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `Campaign detail overflow at ${width}px`);
+      await page.screenshot({ path: resolve(artifacts, `phase08-campaign-${width}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${webOrigin}${workspacePath}/settings`);
+    await page.getByRole('heading', { name: 'Browser verified workspace' }).waitFor();
+  });
   await check('workspace lists load additional cursor pages through the real API', async () => {
     const workspaceUrl = page.url(); const user = await testDb.user.findUniqueOrThrow({ where: { email } });
     await testDb.$transaction(async (tx) => { for (let n = 0; n < 23; n++) await tx.workspace.create({ data: { name: `Pagination fixture ${n}`, slug: randomUUID(), memberships: { create: { userId: user.id, role: 'OWNER' } } } }); });
@@ -68,10 +87,23 @@ try {
   await check('Phase 04 brand wizard, persisted edit, private logo and product forms', async () => {
     const workspacePath = new URL(page.url()).pathname.replace(/\/settings$/, '');
     await page.goto(webOrigin + workspacePath + '/brands');
+    await page.getByRole('heading', { name: 'Brand kits', exact: true }).waitFor();
+    await page.getByRole('link', { name: /Create brand kit/ }).waitFor();
+    const brandLayout = await page.evaluate(() => ({ sidebar: document.querySelector('.sidebar').getBoundingClientRect().right, heading: document.querySelector('#main h1').getBoundingClientRect().left, search: document.querySelector('.catalog-filter .field').getBoundingClientRect().width, form: document.querySelector('#main form').getBoundingClientRect().width }));
+    assert.ok(brandLayout.heading - brandLayout.sidebar >= 20, 'Brand list must have space after sidebar');
+    assert.ok(brandLayout.search < brandLayout.form / 2, 'Brand search should remain a compact field');
+    await page.screenshot({ path: resolve(artifacts, 'phase04-brand-list-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 1000 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({ path: resolve(artifacts, 'phase04-brand-list-mobile.png'), fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('link', { name: /Create$/ }).click();
     await page.getByLabel('Name', { exact: true }).fill('Browser brand');
     await page.getByLabel('Industry', { exact: true }).fill('Software');
     await page.getByLabel('Business description', { exact: true }).fill('Verified through the browser');
+    await page.getByLabel('Brand colors', { exact: true }).fill(Array.from({ length: 13 }, (_, index) => `#${index.toString(16).padStart(6, '0')}`).join('\n'));
+    await page.locator('#main').getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('alert').getByText('A brand kit can contain at most 12 colors.', { exact: true }).waitFor();
     await page.getByLabel('Brand colors', { exact: true }).fill('#7856FF\n#112233');
     await page.locator('#main').getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByLabel('Target audiences', { exact: true }).fill('Marketing teams\nFounders');
@@ -111,6 +143,33 @@ try {
     await page.screenshot({ path: resolve(artifacts, 'phase04-brand-mobile.png'), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto(webOrigin + workspacePath + '/settings');
     await page.getByRole('heading', { name: 'Browser verified workspace', exact: true }).waitFor();
+  });
+  await check('Phase 09 media upload, thumbnail, tags, download, deletion and responsive layout', async () => {
+    const workspacePath = new URL(page.url()).pathname.replace(/\/settings$/, '');
+    const sharp = createRequire(resolve('apps/api/package.json'))('sharp');
+    const image = await sharp({ create: { width: 2, height: 2, channels: 4, background: '#7856ff' } }).png().toBuffer();
+    await page.goto(webOrigin + workspacePath + '/media');
+    await page.getByRole('heading', { name: 'Media library', exact: true }).waitFor();
+    await page.getByLabel('New folder name', { exact: true }).fill('Browser images');
+    await page.getByRole('button', { name: 'Create folder', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Folder', exact: true }).first().click();
+    await page.getByRole('option', { name: 'Browser images', exact: true }).click();
+    await page.getByLabel('Upload image', { exact: true }).setInputFiles({ name: 'media-qa.png', mimeType: 'image/png', buffer: image });
+    await page.getByRole('heading', { name: 'media-qa.png', exact: true }).waitFor();
+    await page.getByRole('img', { name: 'media-qa.png', exact: true }).waitFor();
+    assert.equal(await page.getByRole('img', { name: 'media-qa.png', exact: true }).evaluate(element => element.complete && element.naturalWidth > 0), true);
+    await page.getByRole('button', { name: 'Edit details', exact: true }).click();
+    await page.getByRole('dialog').getByLabel('Tags', { exact: true }).fill('launch, social');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save changes', exact: true }).click();
+    await page.getByText('launch, social', { exact: true }).waitFor();
+    const downloaded = page.waitForEvent('download'); await page.getByRole('button', { name: 'Download', exact: true }).click(); assert.equal((await downloaded).suggestedFilename(), 'media-qa.png');
+    await page.getByLabel('Filter by tag', { exact: true }).fill('launch'); await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    await page.getByRole('heading', { name: 'media-qa.png', exact: true }).waitFor();
+    for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true); await page.screenshot({ path: resolve(artifacts, `phase09-media-${width}.png`), fullPage: true }); }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: 'Delete', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
+    await page.getByText('No images match these filters.', { exact: true }).waitFor();
+    await page.goto(webOrigin + workspacePath + '/settings'); await page.getByRole('heading', { name: 'Browser verified workspace', exact: true }).waitFor();
   });
   await check('Phase 05 real credit wallet, exact large integers, ledger/grants/usage and responsive layout', async () => {
     const workspacePath = new URL(page.url()).pathname.replace(/\/settings$/, ''); const workspaceId = workspacePath.split('/').at(-1);
@@ -168,6 +227,20 @@ try {
   await check('profile settings persist through API and logout protects routes', async () => {
     await page.getByLabel('Your name', { exact: true }).fill('Updated browser name'); await page.getByRole('button', { name: 'Save changes', exact: true }).click(); await page.getByText('Changes saved', { exact: true }).waitFor(); await page.reload(); await page.getByLabel('Your name', { exact: true }).waitFor(); assert.equal(await page.getByLabel('Your name', { exact: true }).inputValue(), 'Updated browser name');
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.waitForURL('**/login'); await page.goto(`${webOrigin}/settings`); await page.waitForURL('**/login');
+  });
+  await check('Phase 11 admin overview, users and AI operations use protected live APIs', async () => {
+    const account = await testDb.user.findUniqueOrThrow({ where: { email } });
+    await testDb.user.update({ where: { id: account.id }, data: { systemRole: 'SUPER_ADMIN' } });
+    await page.goto(`${webOrigin}/login`); await page.getByLabel('Email address').fill(email); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.waitForURL('**/workspaces');
+    await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto(`${webOrigin}/admin`); await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor(); await page.getByText('Total users', { exact: true }).waitFor();
+    await page.screenshot({ path: resolve(artifacts, 'phase11-admin-overview-1440.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 1000 }); await page.waitForTimeout(250);
+    const mobileWidth = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: innerWidth, offenders: [...document.querySelectorAll('body *')].filter(element => element.getBoundingClientRect().right > innerWidth + 1).slice(0, 8).map(element => ({ tag: element.tagName, className: element.className.toString(), right: Math.round(element.getBoundingClientRect().right) })) }));
+    assert.equal(mobileWidth.scroll <= mobileWidth.viewport, true, JSON.stringify(mobileWidth));
+    await page.screenshot({ path: resolve(artifacts, 'phase11-admin-overview-390.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Navigation', exact: true }).click(); await page.getByRole('dialog').getByRole('link', { name: 'Users', exact: true }).click(); await page.getByRole('heading', { name: 'User directory', exact: true }).waitFor();
+    await page.goto(`${webOrigin}/admin/ai`); await page.getByRole('heading', { name: 'AI operations', exact: true }).waitFor(); await page.getByText('Configured model routes', { exact: true }).waitFor();
+    await page.setViewportSize({ width: 1440, height: 1000 });
   });
   if (!production) await check('development component showcase and keyboard selection', async () => {
     await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto(`${webOrigin}/dev/components`); await page.getByRole('heading', { name: 'Design system', exact: true }).waitFor(); const select = page.getByRole('combobox', { name: 'Choose a theme' }); await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); assert.ok((await select.textContent()).includes('Light'));

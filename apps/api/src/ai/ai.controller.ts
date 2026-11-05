@@ -16,6 +16,7 @@ export class AiController {
 export class AiAdminController {
   constructor(@Inject(AiGatewayService) private readonly gateway: AiGatewayService, @Inject(AiPolicyService) private readonly policy: AiPolicyService, @Inject(ProviderRegistry) private readonly registry: ProviderRegistry) {}
   @Put('ai/policy') global(@Req() r: AuthRequest, @Body() dto: PolicyDto) { return this.policy.configure(r.principal.id, dto); }
+  @Get('ai/policy') globalCurrent(@Req() r: AuthRequest) { return this.policy.current(r.principal.id); }
   @Put('workspaces/:workspaceId/ai/policy') workspace(@Req() r: AuthRequest, @Param('workspaceId', ParseUUIDPipe) w: string, @Body() dto: PolicyDto) { return this.policy.configure(r.principal.id, dto, w); }
   @Post('workspaces/:workspaceId/ai/reconcile/:generationId') reconcile(@Req() r: AuthRequest, @Param('workspaceId', ParseUUIDPipe) w: string, @Param('generationId', ParseUUIDPipe) id: string, @Body() dto: ReconcileGenerationDto) { return this.gateway.resolve(w, r.principal.id, id, dto); }
   @Get('ai/providers') async health() { return { routes: this.registry.publicRoutes(), providers: await this.registry.refreshHealth() }; }

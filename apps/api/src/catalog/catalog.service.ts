@@ -20,6 +20,7 @@ export function requireCatalogWriter(role: WorkspaceRole, manager = false) {
 export class CatalogService {
   constructor(@Inject(PrismaService) private readonly db: PrismaService, @Inject(WorkspaceService) private readonly workspaces: WorkspaceService, @Inject(AuditService) private readonly audit: AuditService, @Inject(StorageService) private readonly storage: StorageService, @Inject(ConfigService) private readonly config: ConfigService) {}
   private limit(tx: Tx, workspaceId: string) { return tx.workspaceEntitlement.findUnique({ where: { workspaceId } }).then(row => row?.brandLimit ?? this.config.get<number>('DEFAULT_BRAND_LIMIT', 1)); }
+  applyPlanLimit(tx: Tx, workspaceId: string, brandLimit: number) { return tx.workspaceEntitlement.upsert({ where: { workspaceId }, create: { workspaceId, brandLimit }, update: { brandLimit } }); }
   private async mutate<T>(workspaceId: string, userId: string, action: string, entityId: string | undefined, fn: (tx: Tx) => Promise<T>, manager = false) {
     try {
       return await this.db.$transaction(async tx => {

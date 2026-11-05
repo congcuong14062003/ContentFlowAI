@@ -15,6 +15,7 @@ const sections = computed(() => [t('catalog.basics'), t('catalog.audienceVoice')
 async function changed() { await Promise.all([query.refetch(), queryClient.invalidateQueries({ queryKey: ['catalog'] }), queryClient.invalidateQueries({ queryKey: ['catalog-allowance'] }), queryClient.invalidateQueries({ queryKey: ['catalog-brand-options'] })]); }
 function next() {
   error.value = '';
+  if (step.value === 0 && kit.value.colors.length > 12) { error.value = t('catalog.colorLimit'); return; }
   if (step.value === 0 && (!name.value.trim() || kit.value.colors.some(color => !/^#[a-f0-9]{6}$/i.test(color)))) { error.value = t('catalog.invalidBasics'); return; }
   if (step.value === 2 && (!kit.value.languages.length || kit.value.languages.some(lang => !/^[a-z]{2,3}(-[A-Z]{2})?$/.test(lang)))) { error.value = t('catalog.languageHint'); return; }
   step.value++; requestAnimationFrame(() => heading.value?.focus());

@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type WorkspaceRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -63,6 +63,10 @@ export class WorkspaceService {
   }
   async get(workspaceId: string, userId: string) { const member = await this.member(this.db, workspaceId, userId); const workspace = await this.db.workspace.findUniqueOrThrow({ where: { id: workspaceId } }); return { ...workspace, role: member.role }; }
   update(id: string, userId: string, name: string, requestId: string) { return this.mutate(id, userId, requestId, 'workspace.updated', async (tx, role) => { requireManager(role); return tx.workspace.update({ where: { id }, data: { name: name.trim() } }); }); }
+  setTimezone(id: string, userId: string, timezone: string, requestId: string) {
+    try { new Intl.DateTimeFormat('en-US', { timeZone: timezone }); } catch { throw new BadRequestException('Invalid IANA timezone'); }
+    return this.mutate(id,userId,requestId,'workspace.timezone_updated',async(tx,role)=>{requireManager(role);return tx.workspace.update({where:{id},data:{timezone}});});
+  }
   async members(id: string, userId: string, query: PageQuery = new PageQuery()) {
     await this.member(this.db, id, userId); const scope = `members:${id}`;
     const rows = await this.db.membership.findMany({ where: { workspaceId: id, ...pageRange(query, scope) }, select: { id: true, createdAt: true, userId: true, role: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: query.limit + 1 });
@@ -113,6 +117,9 @@ export class WorkspaceService {
       // Revalidate inviter authority so old invitations cannot bypass a demotion/removal.
       const inviter = await this.member(tx, invitation.workspaceId, invitation.invitedById);
       canGrant(inviter.role, invitation.role);
+      const existingMember = await tx.membership.findUnique({ where: { workspaceId_userId: { workspaceId: invitation.workspaceId, userId: user.id } } });
+      const activePlan = await tx.subscription.findFirst({ where: { workspaceId: invitation.workspaceId, status: 'ACTIVE' }, include: { plan: { select: { memberLimit: true } } } });
+      if (!existingMember && activePlan && await tx.membership.count({ where: { workspaceId: invitation.workspaceId } }) >= activePlan.plan.memberLimit) throw new ConflictException('Workspace member limit reached');
       const result = await tx.invitation.updateMany({ where: { id: invitation.id, revokedAt: null, acceptedAt: null, expiresAt: { gt: new Date() } }, data: { acceptedAt: new Date() } });
       if (!result.count) throw new UnauthorizedException('Invalid invitation');
       await tx.membership.upsert({ where: { workspaceId_userId: { workspaceId: invitation.workspaceId, userId: user.id } }, create: { workspaceId: invitation.workspaceId, userId: user.id, role: invitation.role }, update: {} });
