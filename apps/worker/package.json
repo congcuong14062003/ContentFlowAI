@@ -1,0 +1,20 @@
+{
+  "name": "@contentflow/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@contentflow/mail": "0.0.0",
+    "@prisma/client": "^6.19.3",
+    "bullmq": "^5.63.0",
+    "dotenv": "^17.2.3",
+    "ioredis": "^5.8.2",
+    "pino": "^10.1.0",
+    "zod": "^4.1.12"
+  }
+}

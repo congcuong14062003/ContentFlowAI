@@ -1,0 +1,1 @@
+The CHECK constraints, partial indexes and immutable-history triggers at the end of migration.sql are maintained manually. Prisma migrate diff does not model them. Preserve them in future migrations.

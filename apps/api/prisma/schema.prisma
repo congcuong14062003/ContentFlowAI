@@ -1,0 +1,640 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SystemRole {
+  USER
+  SUPER_ADMIN
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum GenerationStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+enum ReservationStatus {
+  HELD
+  SETTLED
+  RELEASED
+}
+
+enum LedgerKind {
+  GRANT
+  PURCHASE
+  USAGE
+  REFUND
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+  EXPIRY
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum TokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique @db.VarChar(320)
+  displayName     String     @db.VarChar(100)
+  passwordHash    String?
+  systemRole      SystemRole @default(USER)
+  language        String     @default("vi") @db.VarChar(5)
+  emailVerifiedAt DateTime?  @db.Timestamptz(3)
+  disabledAt      DateTime?  @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
+  memberships     Membership[]
+  sessions        Session[]
+  identities      OAuthIdentity[]
+  tokens          UserToken[]
+  invitations     Invitation[] @relation("InvitedBy")
+  auditEvents     AuditEvent[]
+}
+
+model OAuthIdentity {
+  id              String @id @default(uuid()) @db.Uuid
+  userId          String @db.Uuid
+  provider        String @db.VarChar(32)
+  providerSubject String @db.VarChar(255)
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique @db.VarChar(128)
+  accessTokenHash  String?   @unique @db.VarChar(128)
+  accessExpiresAt  DateTime? @db.Timestamptz(3)
+  familyId         String    @db.Uuid
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+  rotatedAt        DateTime? @db.Timestamptz(3)
+  userAgent        String?   @db.VarChar(512)
+  ipHash           String?   @db.VarChar(128)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([userId, revokedAt, createdAt, id])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model UserToken {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  tokenHash String       @unique @db.VarChar(128)
+  purpose   TokenPurpose
+  expiresAt DateTime     @db.Timestamptz(3)
+  usedAt    DateTime?    @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+model Workspace {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String       @db.VarChar(100)
+  slug          String       @unique @db.VarChar(100)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
+  archivedAt    DateTime?    @db.Timestamptz(3)
+  memberships   Membership[]
+  invitations   Invitation[]
+  brands        Brand[]
+  products      Product[]
+  assets        CatalogAsset[]
+  entitlement   WorkspaceEntitlement?
+  campaigns     Campaign[]
+  contents      Content[]
+  generations   AiGeneration[]
+  creditAccount CreditAccount?
+  subscriptions Subscription[]
+  payments      Payment[]
+  auditEvents   AuditEvent[]
+  creditGrants CreditGrant[]
+  aiPolicy AiPolicy?
+  aiRateWindow AiRateWindow?
+  generatorQuotes GeneratorQuote[]
+  generatorRuns GeneratorRun[]
+}
+
+model Membership {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  role        WorkspaceRole @default(VIEWER)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, workspaceId])
+  @@index([userId, createdAt, id])
+  @@index([workspaceId, createdAt, id])
+}
+
+model Invitation {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  email       String        @db.VarChar(320)
+  role        WorkspaceRole
+  tokenHash   String        @unique @db.VarChar(128)
+  invitedById String        @db.Uuid
+  expiresAt   DateTime      @db.Timestamptz(3)
+  acceptedAt  DateTime?     @db.Timestamptz(3)
+  revokedAt   DateTime?     @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  invitedBy   User          @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, createdAt, id])
+  @@index([expiresAt])
+}
+
+model Brand {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String    @db.VarChar(100)
+  guidelines  Json      @default("{}")
+  isDefault   Boolean   @default(false)
+  deletedAt   DateTime? @db.Timestamptz(3)
+  logoAssetId String?   @db.Uuid
+  logo        CatalogAsset? @relation("BrandLogo", fields: [workspaceId, id, logoAssetId], references: [workspaceId, brandId, id], onDelete: Restrict, onUpdate: NoAction, map: "Brand_logo_owned")
+  assets      CatalogAsset[] @relation("BrandAssets")
+  products    ProductBrand[]
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  contents    Content[]
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, name])
+  @@index([workspaceId, deletedAt, createdAt, id])
+}
+
+model WorkspaceEntitlement {
+  workspaceId String @id @db.Uuid
+  brandLimit Int
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+}
+
+model Product {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  name String @db.VarChar(150)
+  description String @default("") @db.VarChar(10000)
+  priceReference String @default("") @db.VarChar(200)
+  features String[]
+  benefits String[]
+  audiences String[]
+  categories String[]
+  tags String[]
+  status String @default("ACTIVE") @db.VarChar(16)
+  deletedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brands ProductBrand[]
+  assets CatalogAsset[] @relation("ProductAssets")
+  @@unique([workspaceId, id])
+  @@index([workspaceId, deletedAt, status, createdAt, id])
+}
+
+model ProductBrand {
+  workspaceId String @db.Uuid
+  productId String @db.Uuid
+  brandId String @db.Uuid
+  product Product @relation(fields: [workspaceId, productId], references: [workspaceId, id], onDelete: Restrict, onUpdate: NoAction)
+  brand Brand @relation(fields: [workspaceId, brandId], references: [workspaceId, id], onDelete: Restrict, onUpdate: NoAction)
+  @@id([workspaceId, productId, brandId])
+  @@index([workspaceId, brandId, productId])
+}
+
+model CatalogAsset {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  brandId String? @db.Uuid
+  productId String? @db.Uuid
+  storageKey String @unique @db.VarChar(512)
+  originalName String @db.VarChar(200)
+  mimeType String @db.VarChar(32)
+  size Int
+  status String @default("PENDING") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  brand Brand? @relation("BrandAssets", fields: [workspaceId, brandId], references: [workspaceId, id], onDelete: Restrict, onUpdate: NoAction)
+  product Product? @relation("ProductAssets", fields: [workspaceId, productId], references: [workspaceId, id], onDelete: Restrict, onUpdate: NoAction)
+  logoFor Brand[] @relation("BrandLogo")
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, brandId, id], map: "CatalogAsset_workspace_brand_id")
+  @@index([workspaceId, brandId, status])
+  @@index([workspaceId, productId, status])
+}
+
+model Campaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String    @db.VarChar(150)
+  startsAt    DateTime? @db.Timestamptz(3)
+  endsAt      DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  contents    Content[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, createdAt, id])
+}
+
+model Content {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  brandId     String?       @db.Uuid
+  campaignId  String?       @db.Uuid
+  title       String        @db.VarChar(250)
+  body        Json          @default("{}")
+  status      ContentStatus @default(DRAFT)
+  version     Int           @default(1)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  brand       Brand?        @relation(fields: [workspaceId, brandId], references: [workspaceId, id], onDelete: Restrict)
+  campaign    Campaign?     @relation(fields: [workspaceId, campaignId], references: [workspaceId, id], onDelete: Restrict)
+  revisions   ContentRevision[]
+  generatedDrafts GeneratedDraft[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status, createdAt, id])
+  @@index([workspaceId, brandId])
+  @@index([workspaceId, campaignId])
+}
+
+model ContentRevision {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @db.Uuid
+  contentId   String   @db.Uuid
+  version     Int
+  title       String?  @db.VarChar(250)
+  actorId     String?  @db.Uuid
+  body        Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  content     Content  @relation(fields: [workspaceId, contentId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, contentId, version])
+}
+
+model AiGeneration {
+  id             String           @id @default(uuid()) @db.Uuid
+  workspaceId    String           @db.Uuid
+  idempotencyKey String           @db.VarChar(128)
+  provider       String           @db.VarChar(50)
+  model          String           @db.VarChar(100)
+  status         GenerationStatus @default(QUEUED)
+  input          Json
+  output         Json?
+  errorCode      String?          @db.VarChar(80)
+  fingerprint    String?          @db.VarChar(64)
+  taskType       String?          @db.VarChar(40)
+  pricing        Json             @default("{}")
+  estimatedMicros BigInt          @default(0)
+  providerRequestId String?       @db.VarChar(200)
+  dispatchedAt   DateTime?        @db.Timestamptz(3)
+  deadlineAt     DateTime?        @db.Timestamptz(3)
+  spendDay       DateTime?        @db.Date
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  usage          AiUsage?
+  reservation    CreditReservation?
+  generatorRun   GeneratorRun?
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, status, createdAt])
+}
+
+model GeneratorQuote {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  actorId String @db.Uuid
+  toolId String @db.VarChar(50)
+  fingerprint String @db.VarChar(64)
+  input Json
+  snapshot Json
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  run GeneratorRun?
+  @@unique([workspaceId, id])
+  @@index([workspaceId, actorId, createdAt, id])
+}
+
+model GeneratorRun {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  actorId String @db.Uuid
+  quoteId String @unique @db.Uuid
+  aiGenerationId String? @unique @db.Uuid
+  idempotencyKey String @db.VarChar(80)
+  status String @default("PENDING") @db.VarChar(32)
+  result Json?
+  errorCode String? @db.VarChar(80)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  quote GeneratorQuote @relation(fields: [workspaceId, quoteId], references: [workspaceId, id], onDelete: Restrict)
+  aiGeneration AiGeneration? @relation(fields: [workspaceId, aiGenerationId], references: [workspaceId, id], onDelete: Restrict)
+  drafts GeneratedDraft[]
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, quoteId])
+  @@unique([workspaceId, aiGenerationId])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt, id])
+}
+
+model GeneratedDraft {
+  workspaceId String @db.Uuid
+  runId String @db.Uuid
+  variationIndex Int
+  contentId String @unique @db.Uuid
+  run GeneratorRun @relation(fields: [workspaceId, runId], references: [workspaceId, id], onDelete: Restrict)
+  content Content @relation(fields: [workspaceId, contentId], references: [workspaceId, id], onDelete: Restrict)
+  @@id([workspaceId, runId, variationIndex])
+}
+
+model AiUsage {
+  id           String       @id @default(uuid()) @db.Uuid
+  workspaceId  String       @db.Uuid
+  generationId String       @unique @db.Uuid
+  inputTokens  Int
+  outputTokens Int
+  costMicros   BigInt
+  credits      BigInt
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  generation   AiGeneration @relation(fields: [workspaceId, generationId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, generationId])
+  @@index([workspaceId, createdAt, id])
+}
+
+model CreditAccount {
+  id           String              @id @default(uuid()) @db.Uuid
+  workspaceId  String              @unique @db.Uuid
+  balance      BigInt              @default(0)
+  reserved     BigInt              @default(0)
+  version      Int                 @default(0)
+  updatedAt    DateTime            @updatedAt @db.Timestamptz(3)
+  workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  entries      CreditLedgerEntry[]
+  reservations CreditReservation[]
+  grants       CreditGrant[]
+
+  @@unique([workspaceId, id])
+}
+
+model CreditReservation {
+  id           String            @id @default(uuid()) @db.Uuid
+  workspaceId  String            @db.Uuid
+  accountId    String            @db.Uuid
+  generationId String            @unique @db.Uuid
+  amount       BigInt
+  settledAmount BigInt @default(0)
+  refundedAt DateTime? @db.Timestamptz(3)
+  allocations CreditAllocation[]
+  status       ReservationStatus @default(HELD)
+  expiresAt    DateTime          @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(3)
+  account      CreditAccount     @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  generation   AiGeneration      @relation(fields: [workspaceId, generationId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, generationId])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, accountId, status])
+  @@index([status, expiresAt])
+}
+
+model CreditLedgerEntry {
+  id             String        @id @default(uuid()) @db.Uuid
+  workspaceId    String        @db.Uuid
+  accountId      String        @db.Uuid
+  kind           LedgerKind
+  amount         BigInt
+  reservedDelta  BigInt @default(0)
+  idempotencyKey String        @db.VarChar(128)
+  reference      String?       @db.VarChar(255)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  account        CreditAccount @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt, id])
+}
+
+model CreditGrant {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  accountId String @db.Uuid
+  source String @db.VarChar(24)
+  amount BigInt
+  remaining BigInt
+  reserved BigInt @default(0)
+  expiresAt DateTime? @db.Timestamptz(3)
+  idempotencyKey String @db.VarChar(100)
+  fingerprint String @db.VarChar(64)
+  reference String @db.VarChar(200)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  account CreditAccount @relation(fields: [workspaceId, accountId], references: [workspaceId, id], onDelete: Restrict)
+  allocations CreditAllocation[]
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, expiresAt, createdAt, id])
+}
+
+model CreditAllocation {
+  workspaceId String @db.Uuid
+  reservationId String @db.Uuid
+  grantId String @db.Uuid
+  amount BigInt
+  consumed BigInt @default(0)
+  reservation CreditReservation @relation(fields: [workspaceId, reservationId], references: [workspaceId, id], onDelete: Restrict)
+  grant CreditGrant @relation(fields: [workspaceId, grantId], references: [workspaceId, id], onDelete: Restrict)
+  @@id([workspaceId, reservationId, grantId])
+  @@index([workspaceId, grantId])
+}
+
+model AiPolicy {
+  key String @id @db.VarChar(80)
+  workspaceId String? @unique @db.Uuid
+  enabled Boolean @default(false)
+  dailyCapMicros BigInt @default(0)
+  requestsPerMinute Int @default(10)
+  maxConcurrent Int @default(2)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  buckets AiSpendBucket[]
+}
+
+model AiSpendBucket {
+  scope String @db.VarChar(80)
+  day DateTime @db.Date
+  spentMicros BigInt @default(0)
+  reservedMicros BigInt @default(0)
+  policy AiPolicy @relation(fields: [scope], references: [key], onDelete: Restrict)
+  @@id([scope, day])
+}
+
+model AiRateWindow {
+  workspaceId String @id @db.Uuid
+  startedAt DateTime @db.Timestamptz(3)
+  count Int
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+}
+
+model AiProviderHealth {
+  provider String @id @db.VarChar(50)
+  healthy Boolean
+  checkedAt DateTime @db.Timestamptz(3)
+  errorCode String? @db.VarChar(80)
+}
+
+model Plan {
+  id            String         @id @default(uuid()) @db.Uuid
+  code          String         @unique @db.VarChar(50)
+  name          String         @db.VarChar(100)
+  monthlyCredits BigInt
+  priceMinor    BigInt
+  currency      String         @db.Char(3)
+  active        Boolean        @default(false)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  workspaceId        String             @db.Uuid
+  planId             String             @db.Uuid
+  provider           String             @db.VarChar(50)
+  externalId         String             @db.VarChar(255)
+  status             SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodEnd   DateTime?          @db.Timestamptz(3)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+  workspace          Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  plan               Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments           Payment[]
+
+  @@unique([provider, externalId])
+  @@unique([workspaceId, id])
+  @@index([workspaceId, status])
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  workspaceId    String        @db.Uuid
+  subscriptionId String?       @db.Uuid
+  provider       String        @db.VarChar(50)
+  externalId     String        @db.VarChar(255)
+  amountMinor    BigInt
+  currency       String        @db.Char(3)
+  status         PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  subscription   Subscription? @relation(fields: [workspaceId, subscriptionId], references: [workspaceId, id], onDelete: Restrict)
+
+  @@unique([provider, externalId])
+  @@index([workspaceId, createdAt, id])
+  @@index([workspaceId, subscriptionId])
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String    @db.VarChar(50)
+  externalId  String    @db.VarChar(255)
+  payloadHash String    @db.VarChar(128)
+  receivedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+
+  @@unique([provider, externalId])
+}
+
+model AuditEvent {
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String?    @db.Uuid
+  actorId     String?    @db.Uuid
+  action      String     @db.VarChar(100)
+  entityType  String     @db.VarChar(100)
+  entityId    String?    @db.VarChar(128)
+  requestId   String     @db.VarChar(80)
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor       User?      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, createdAt, id])
+  @@index([actorId, createdAt])
+}
+
+model SystemSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model OutboxEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  topic       String    @db.VarChar(100)
+  aggregateId String    @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  publishedAt DateTime? @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@index([topic, publishedAt, createdAt, id])
+}

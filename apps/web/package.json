@@ -1,0 +1,28 @@
+{
+  "name": "@contentflow/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@tanstack/vue-query": "^5.105.3",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.24",
+    "vue-i18n": "^11.4.18",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.4",
+    "@vitejs/plugin-vue": "^6.0.2",
+    "@vue/test-utils": "^2.4.11",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.3.4",
+    "vite": "^7.2.2",
+    "vue-tsc": "^3.1.4"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "experimentalDecorators": true, "emitDecoratorMetadata": true, "strictPropertyInitialization": false, "types": ["node"] },
+  "include": ["apps/api/**/*.spec.ts", "apps/worker/**/*.spec.ts", "packages/**/*.spec.ts", "scripts/**/*.ts", "vitest.config.mts"]
+}

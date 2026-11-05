@@ -1,0 +1,72 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: contentflow
+          POSTGRES_DB: contentflow_test
+          # Disposable CI service only; no credential is stored in the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U contentflow -d contentflow_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://contentflow@127.0.0.1:5432/contentflow_test?schema=public
+      TEST_DATABASE_URL: postgresql://contentflow@127.0.0.1:5432/contentflow_test?schema=public
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+      REDIS_URL: redis://127.0.0.1:6379
+      WEB_ORIGIN: http://localhost:5173
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: ci-local
+      S3_BUCKET: contentflow-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npm ci
+      - name: Generate ephemeral mail key
+        run: node -e "const c=require('crypto'); require('fs').appendFileSync(process.env.GITHUB_ENV, 'MAIL_ENCRYPTION_KEY=' + c.randomBytes(32).toString('hex') + '\nS3_SECRET_KEY=' + c.randomBytes(32).toString('hex') + '\n')"
+      - run: npm run db:generate
+      - run: npm run build -w @contentflow/mail
+      - run: npm run db:migrate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Start private test object storage
+        run: |
+          docker compose -f infrastructure/compose.test.yml up -d --wait --build storage
+          docker compose -f infrastructure/compose.test.yml run --rm --build storage-init
+      - run: npm run test:catalog
+      - run: npm run test:finance
+      - run: npm run test:generator
+      - run: npm run test:auth
+      - run: npm run test:providers
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - run: npm run test:browser
+        env:
+          BROWSER_MODE: production
+      - name: Stop disposable object storage
+        if: always()
+        run: docker compose -f infrastructure/compose.test.yml down
