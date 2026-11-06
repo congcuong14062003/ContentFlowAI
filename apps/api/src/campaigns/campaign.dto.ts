@@ -16,6 +16,6 @@ export class CampaignQuery extends PageQuery {
   @IsOptional() @IsUUID() brandId?: string;
 }
 export class AttachContentDto { @IsUUID() contentId!: string; @IsInt() @Min(1) expectedVersion!: number; }
-export class TransitionDto { @IsInt() @Min(1) expectedVersion!: number; @IsIn(['IDEA','DRAFT','IN_REVIEW','APPROVED','REJECTED','SCHEDULED','PUBLISHED','FAILED','ARCHIVED']) status!: string; @IsOptional() @IsString() @MaxLength(1000) reason?: string; }
+export class TransitionDto { @IsInt() @Min(1) expectedVersion!: number; @IsIn(['IDEA','DRAFT','IN_REVIEW','APPROVED','REJECTED','SCHEDULED','PUBLISHED','FAILED','ARCHIVED']) status!: string; @IsOptional() @IsString() @MaxLength(1000) reason?: string; @IsOptional() @IsUUID() reviewerId?: string; }
 export class ScheduleDto { @IsInt() @Min(1) expectedVersion!: number; @IsString() scheduledAt!: string; }
 export class CalendarQuery { @IsString() from!: string; @IsString() to!: string; @IsOptional() @IsUUID() brandId?: string; @IsOptional() @IsIn(['IDEA','DRAFT','IN_REVIEW','APPROVED','REJECTED','SCHEDULED','PUBLISHED','FAILED','ARCHIVED']) status?: string; }

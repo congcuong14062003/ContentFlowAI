@@ -1,5 +1,17 @@
 # Phase log
 
+## 2026-11-05 — Email verification code correction
+
+Replaced new-account email link with a 10-minute, six-digit code and a code-entry UI. Added HMAC token storage, resend invalidation, attempt limit, legacy-link compatibility and auth/browser fixture updates. Full verify and 18 real HTTP auth scenarios passed; local API/web rebuilt. SMTP outbox published a new code for the sole pending configured account.
+
+## 2026-11-05 — Phase 13 collaboration/notifications checkpoint
+
+Added additive migration 14, collaboration and notification API modules, content/workspace/support event hooks, worker event scans, web notification center/settings and content/team collaboration interfaces. Full verify passed; disposable PostgreSQL migration/schema diff passed. Real integration fixture exercises authorization, dedupe, realtime reconnect and background events. Remaining acceptance is in `PHASE_13.md`.
+
+## 2026-11-05 — Phase 12 financial analytics/support checkpoint
+
+Added additive migration 13, finance aggregation/cost entry/CSV API and admin charts, plus tenant-safe support tickets, replies, notes, history and in-app notifications with separate user/admin UI. `docs/PHASE_12.md` records definitions and remaining scope. Full verify passed 47 tests +3 opt-in skips/five builds; isolated PostgreSQL migration/schema diff and finance/support fixture passed. No browser/live HTTP or production deployment claim. Phase 12 remains partial.
+
 ## 2026-11-05 — Phase 11 admin/dashboard checkpoint
 
 Added independent admin shell/routes, genuine PostgreSQL/BullMQ overview and ECharts visualizations, system-admin-protected user search/details/suspension and AI policy/provider/usage operations. No synthetic production metrics or secret fields. Changed: `apps/api/src/admin/*`, `apps/api/src/{app.module.ts,ai/ai-policy.service.ts,ai/ai.controller.ts}`, `apps/web/src/{layouts/AdminShell.vue,features/admin/*,app/router.ts,locales/{vi,en}.ts,styles/tokens.css}`, web/API package manifests and lock, `scripts/test-admin.mjs`, `scripts/test-browser.mjs`, root package scripts and checkpoint docs. Removed unused placeholder `AdminPage.vue`. No database migration.

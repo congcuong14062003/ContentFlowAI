@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { config } from 'dotenv'; import { createRequire } from 'node:module'; import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process'; import { mkdir, readdir, readFile, rm } from 'node:fs/promises'; import { resolve } from 'node:path'; import assert from 'node:assert/strict'; import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process'; import { mkdir, readdir, readFile, rm } from 'node:fs/promises'; import { resolve } from 'node:path'; import assert from 'node:assert/strict'; import { createHash, createHmac } from 'node:crypto';
 import { startMailWorker, startMailDispatcher } from '@contentflow/mail';
 config({ path: '.env', quiet: true });
 const require = createRequire(import.meta.url); const { PrismaClient } = require('@prisma/client');
@@ -36,15 +36,43 @@ try {
     }
     throw new Error(`Expected private ${purpose} email`);
   }
+  async function mailCode(email) {
+    const expected = await db.userToken.findFirst({ where: { user: { email }, purpose: 'VERIFY_EMAIL', usedAt: null }, orderBy: { createdAt: 'desc' } });
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const messages = await Promise.all((await readdir(mailbox)).map(async (file) => JSON.parse(await readFile(resolve(mailbox, file), 'utf8'))));
+      const message = messages.filter((item) => item.to === email && /Mã xác minh ContentFlow AI của bạn: (\d{6})/.test(item.text)).findLast((item) => {
+        const code = item.text.match(/Mã xác minh ContentFlow AI của bạn: (\d{6})/)[1];
+        return createHmac('sha256', process.env.MAIL_ENCRYPTION_KEY).update(`email-verification:${expected?.id}:${code}`).digest('hex') === expected?.tokenHash;
+      });
+      if (message) return message.text.match(/Mã xác minh ContentFlow AI của bạn: (\d{6})/)[1];
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error('Expected private verification code email');
+  }
   async function register(email) { const r = await call('/auth/register', 'POST', { email, displayName: 'Integration User', password }); assert.equal(r.status, 201); }
-  async function verify(email) { const r = await call('/auth/verify-email', 'POST', { token: await mailToken(email, 'verify-email') }); assert.equal(r.status, 200); }
+  async function verify(email) { const r = await call('/auth/verify-email', 'POST', { email, code: await mailCode(email) }); assert.equal(r.status, 200); }
   async function login(email) { const r = await call('/auth/login', 'POST', { email, password }); assert.equal(r.status, 200); assert.ok(r.cookie); return r; }
   const ownerEmail = `${randomUUID()}@example.invalid`; const otherEmail = `${randomUUID()}@example.invalid`; const adminEmail = `${randomUUID()}@example.invalid`; let owner; let other; let manager; let workspace; let privateWorkspace; let invitation;
   await check('register, hashed credentials, verification requirement and no secret response', async () => {
     await register(ownerEmail); const row = await db.user.findUniqueOrThrow({ where: { email: ownerEmail } }); assert.match(row.passwordHash, /^scrypt\$/); assert.notEqual(row.passwordHash, password);
-    assert.equal((await call('/auth/login', 'POST', { email: ownerEmail, password })).status, 403); await verify(ownerEmail);
-    assert.equal((await call('/auth/verify-email', 'POST', { token: await mailToken(ownerEmail, 'verify-email') })).status, 401);
+    assert.equal((await call('/auth/login', 'POST', { email: ownerEmail, password })).status, 403);
+    const firstCode = await mailCode(ownerEmail);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: ownerEmail, code: 'xxxxxx' })).status, 400);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: ownerEmail, code: firstCode === '000000' ? '000001' : '000000' })).status, 401);
+    assert.equal((await call('/auth/resend-verification', 'POST', { email: ownerEmail })).status, 200);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: ownerEmail, code: firstCode })).status, 401);
+    const currentCode = await mailCode(ownerEmail);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: ownerEmail, code: currentCode })).status, 200);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: ownerEmail, code: currentCode })).status, 401);
     owner = await login(ownerEmail); assert.match(owner.headers.get('set-cookie'), /HttpOnly/i); assert.match(owner.headers.get('set-cookie'), /SameSite=Lax/i);
+  });
+  await check('verification codes expire and repeated guesses are blocked', async () => {
+    const expiredEmail = `${randomUUID()}@example.invalid`; await register(expiredEmail); const expiredCode = await mailCode(expiredEmail);
+    await db.userToken.updateMany({ where: { user: { email: expiredEmail }, purpose: 'VERIFY_EMAIL' }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    assert.equal((await call('/auth/verify-email', 'POST', { email: expiredEmail, code: expiredCode })).status, 401);
+    const limitedEmail = `${randomUUID()}@example.invalid`; await register(limitedEmail); const actual = await mailCode(limitedEmail); const wrong = actual === '000000' ? '000001' : '000000';
+    for (let attempt = 0; attempt < 5; attempt++) assert.equal((await call('/auth/verify-email', 'POST', { email: limitedEmail, code: wrong })).status, 401);
+    assert.equal((await call('/auth/verify-email', 'POST', { email: limitedEmail, code: actual })).status, 401);
   });
   await check('invalid credentials, unknown DTO fields and cookie Origin protection', async () => {
     assert.equal((await call('/auth/login', 'POST', { email: ownerEmail, password: 'wrong' })).status, 401);

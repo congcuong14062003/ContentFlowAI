@@ -44,4 +44,11 @@ export function refreshSession() {
   return refreshInFlight;
 }
 export const json = (body: unknown) => JSON.stringify(body);
+export async function notificationStream(signal: AbortSignal, onEvent: (name: string) => void) {
+  let response=await fetch(`${base}/notifications/stream`,{credentials:'include',headers:{Authorization:`Bearer ${accessToken}`},signal});
+  if(response.status===401){await refreshSession();response=await fetch(`${base}/notifications/stream`,{credentials:'include',headers:{Authorization:`Bearer ${accessToken}`},signal});}
+  if(!response.ok||!response.body)throw new ApiError(`HTTP_${response.status}`,response.status);
+  const reader=response.body.getReader();const decoder=new TextDecoder();let buffer='';let eventName='';
+  try{while(!signal.aborted){const chunk=await reader.read();if(chunk.done)break;buffer+=decoder.decode(chunk.value,{stream:true});let cut=buffer.indexOf('\n');while(cut!==-1){const line=buffer.slice(0,cut).replace(/\r$/,'');buffer=buffer.slice(cut+1);if(line.startsWith('event: '))eventName=line.slice(7);else if(!line&&eventName){onEvent(eventName);eventName='';}cut=buffer.indexOf('\n');}}}finally{reader.releaseLock();}
+}
 export function errorKey(error: unknown) { return error instanceof ApiError ? error.code === 'EMAIL_UNVERIFIED' ? 'auth.unverified' : `errors.${error.code}` : 'common.error'; }

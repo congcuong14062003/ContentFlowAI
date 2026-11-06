@@ -9,7 +9,7 @@ export class ContentDraftService {
   async create(tx: Prisma.TransactionClient, workspaceId: string, actorId: string, brandId: string, title: string, body: Prisma.InputJsonValue, sourceRun: string) {
     if (await this.workspaces.authorize(tx, workspaceId, actorId, true) === 'VIEWER') throw new ForbiddenException();
     await this.identity.requireActiveVerifiedUser(tx, actorId);
-    const content = await tx.content.create({ data: { workspaceId, brandId, title, body, status: 'DRAFT', version: 1 } });
+    const content = await tx.content.create({ data: { workspaceId, brandId, title, body, status: 'DRAFT', version: 1, ownerId: actorId, assigneeId: actorId } });
     await tx.contentRevision.create({ data: { workspaceId, contentId: content.id, version: 1, title, actorId, body } });
     await this.audit.record(tx, { actorId, workspaceId, action: 'content.draft_created', entityType: 'content', entityId: content.id, metadata: { sourceRun } });
     return { id: content.id, version: content.version };

@@ -112,7 +112,7 @@ export class BillingService {
       if (payment.status !== 'PENDING' || payment.invoice.status !== 'PENDING' || !['INCOMPLETE', 'ACTIVE', 'PAST_DUE'].includes(payment.subscription.status)) throw new ConflictException('Payment is not pending');
       const invoice = payment.invoice; const subscription = payment.subscription; const plan = await tx.plan.findUniqueOrThrow({ where: { id: invoice.planId } });
       if (invoice.amountMinor !== payment.amountMinor || invoice.currency !== payment.currency || invoice.amountMinor !== plan.priceMinor) throw new ConflictException('Invoice/payment mismatch');
-      await tx.payment.update({ where: { id: paymentId }, data: { status: 'SUCCEEDED' } });
+      await tx.payment.update({ where: { id: paymentId }, data: { status: 'SUCCEEDED', collectedAt: new Date() } });
       await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'PAID' } });
       await tx.subscription.update({ where: { id: subscription.id }, data: { status: 'ACTIVE', currentPeriodStart: invoice.periodStart, currentPeriodEnd: invoice.periodEnd, graceUntil: null, cancelAtPeriodEnd: false } });
       await this.entitlements(tx, workspaceId, plan);

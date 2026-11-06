@@ -1,9 +1,10 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type TokenPurpose } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../platform/prisma.service';
 import { MailService } from './mail.service';
+import { RedisService } from '../platform/redis.service';
 import { digest, hashPassword, token, verifyPassword } from './crypto';
 import { publicUser } from './auth.guard';
 import type { RegisterDto, ProfileDto } from './identity.dto';
@@ -21,7 +22,7 @@ export class IdentityService {
   async requireActiveVerifiedUser(tx: Prisma.TransactionClient, userId: string) {
     if (!await tx.user.findFirst({ where: { id: userId, disabledAt: null, emailVerifiedAt: { not: null } }, select: { id: true } })) throw new ForbiddenException();
   }
-  constructor(@Inject(PrismaService) private readonly db: PrismaService, @Inject(MailService) private readonly mail: MailService, @Inject(ConfigService) private readonly config: ConfigService, @Inject(AuditService) private readonly audit: AuditService) {}
+  constructor(@Inject(PrismaService) private readonly db: PrismaService, @Inject(MailService) private readonly mail: MailService, @Inject(ConfigService) private readonly config: ConfigService, @Inject(AuditService) private readonly audit: AuditService, @Inject(RedisService) private readonly redis: RedisService) {}
 
   async register(dto: RegisterDto) {
     const passwordHash = await hashPassword(dto.password);
@@ -31,11 +32,45 @@ export class IdentityService {
     return { accepted: true };
   }
   private async issueToken(tx: Prisma.TransactionClient, userId: string, email: string, purpose: TokenPurpose) {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId}::uuid FOR UPDATE`;
+    await tx.userToken.updateMany({ where: { userId, purpose, usedAt: null }, data: { usedAt: new Date() } });
+    if (purpose === 'VERIFY_EMAIL') {
+      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      const id = randomUUID();
+      const record = await tx.userToken.create({ data: { id, userId, purpose, tokenHash: this.verificationHash(id, code), expiresAt: new Date(Date.now() + 10 * 60000) } });
+      await this.mail.enqueue(tx, record.id, email, 'ContentFlow AI: mã xác minh email', `Mã xác minh ContentFlow AI của bạn: ${code}\n\nMã có hiệu lực trong 10 phút. Không chia sẻ mã này. Nếu bạn không yêu cầu, hãy bỏ qua email này.\n\nYour verification code is ${code}. It expires in 10 minutes.`);
+      return;
+    }
     const raw = token();
     const record = await tx.userToken.create({ data: { userId, purpose, tokenHash: digest(raw), expiresAt: new Date(Date.now() + (purpose === 'RESET_PASSWORD' ? 30 : 1440) * 60000) } });
     const path = purpose === 'RESET_PASSWORD' ? '/reset-password' : '/verify-email';
     const url = `${this.config.get<string>('WEB_ORIGIN')}${path}#token=${raw}`;
     await this.mail.enqueue(tx, record.id, email, purpose === 'RESET_PASSWORD' ? 'ContentFlow AI: reset password' : 'ContentFlow AI: verify email', `${url}\n\nThis link is private and expires. If you did not request it, ignore this email.`);
+  }
+  private verificationHash(tokenId: string, code: string) { return createHmac('sha256', this.config.getOrThrow<string>('MAIL_ENCRYPTION_KEY')).update(`email-verification:${tokenId}:${code}`).digest('hex'); }
+  async consumeVerificationCode(email: string, code: string) {
+    const key = `${this.config.get('RATE_LIMIT_PREFIX', 'contentflow')}:verify-code:${digest(email)}`;
+    const attempts = await this.redis.client.eval("local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],600) end; return n", 1, key);
+    if (Number(attempts) > 5) throw invalid();
+    const user = await this.db.user.findUnique({ where: { email }, select: { id: true } });
+    if (!user) throw invalid();
+    const verified = await this.db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id}::uuid FOR UPDATE`;
+      const record = await tx.userToken.findFirst({ where: { userId: user.id, purpose: 'VERIFY_EMAIL', usedAt: null, expiresAt: { gt: new Date() } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+      if (!record) return false;
+      const expected = Buffer.from(record.tokenHash, 'hex');
+      const supplied = Buffer.from(this.verificationHash(record.id, code), 'hex');
+      if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return false;
+      const changed = await tx.userToken.updateMany({ where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() }, user: { disabledAt: null, emailVerifiedAt: null } }, data: { usedAt: new Date() } });
+      if (changed.count !== 1) return false;
+      await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+      await tx.userToken.updateMany({ where: { userId: user.id, purpose: 'VERIFY_EMAIL', usedAt: null }, data: { usedAt: new Date() } });
+      await this.audit.record(tx, { actorId: user.id, action: 'identity.email_verified', entityType: 'user', entityId: user.id });
+      return true;
+    });
+    if (!verified) throw invalid();
+    await this.redis.client.del(key);
+    return { accepted: true };
   }
   async requestToken(email: string, purpose: TokenPurpose) {
     const user = await this.db.user.findUnique({ where: { email } });

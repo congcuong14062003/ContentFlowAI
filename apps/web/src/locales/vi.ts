@@ -3,6 +3,10 @@ type Messages = {
   [K in keyof typeof en]: { [P in keyof (typeof en)[K]]: string };
 };
 const messages: Messages = {
+  team: { activity: 'Hoạt động nhóm' },
+  notifications: { title: 'Thông báo' },
+  finance: { title: 'Tài chính' },
+  support: { title: 'Hỗ trợ' },
   admin: { overview: 'Tổng quan', users: 'Người dùng', aiOperations: 'Vận hành AI', navigation: 'Điều hướng quản trị', backToApp: 'Ứng dụng workspace', search: 'Tìm người dùng', searchAction: 'Tìm', aiAlerts: 'Lỗi AI', dashboardIntro: 'Hoạt động hệ thống từ dữ liệu thật trong 30 ngày qua.', totalUsers: 'Tổng người dùng', activeUsers: 'Người dùng hoạt động', newUsers: 'Người dùng mới', paidCustomers: 'Khách hàng trả phí', subscriptions: 'Gói đang hoạt động', generatedContents: 'Bản nháp AI đã lưu', aiRequests: 'Yêu cầu AI', creditUsage: 'Credit đã dùng', providerCost: 'Chi phí nhà cung cấp', storageUsage: 'Byte đã lưu', errorRate: 'Tỷ lệ lỗi AI', queueHealth: 'Trạng thái hàng đợi', userGrowth: 'Tăng trưởng người dùng', subscriptionTrend: 'Đăng ký gói mới', aiCostTrend: 'Chi phí AI', requestUsage: 'Yêu cầu AI theo ngày', creditConsumption: 'Credit tiêu thụ', plansDistribution: 'Phân bố gói đang dùng', providerBreakdown: 'Nhà cung cấp AI', generationTrend: 'Kết quả tạo nội dung', emptyChart: 'Không có dữ liệu trong kỳ này.', queueUnavailable: 'Không kết nối được hàng đợi', queueReady: 'Đã kết nối hàng đợi nền tảng', userList: 'Danh sách người dùng', status: 'Trạng thái', all: 'Tất cả', active: 'Hoạt động', suspended: 'Bị khóa', filter: 'Áp dụng bộ lọc', email: 'Email', name: 'Tên', createdAt: 'Ngày tham gia', memberships: 'Workspace', details: 'Thông tin người dùng', verified: 'Đã xác minh', unverified: 'Chưa xác minh', suspend: 'Khóa tài khoản', restore: 'Mở tài khoản', reason: 'Lý do thao tác', reasonHint: 'Ít nhất 20 ký tự. Lý do được ghi vào audit.', confirmStatus: 'Xác nhận đổi trạng thái tài khoản?', audit: 'Sự kiện audit gần đây', noUsers: 'Không có người dùng phù hợp.', noAudit: 'Chưa có sự kiện audit.', workspaceUsage: 'Mức dùng của các workspace (chia sẻ với thành viên khác)', providerRoutes: 'Model đã cấu hình', providerHealth: 'Sức khỏe nhà cung cấp', globalPolicy: 'Chính sách AI toàn hệ thống', enabled: 'Bật', disabled: 'Tắt', dailyCap: 'Trần chi phí ngày (µUSD)', perMinute: 'Yêu cầu mỗi phút', concurrent: 'Yêu cầu đồng thời', savePolicy: 'Lưu chính sách', policyConfirm: 'Áp dụng chính sách AI toàn hệ thống? Thay đổi này ảnh hưởng mọi workspace.', configHint: 'Route và giá model được nạp từ môi trường máy chủ lúc khởi động. Trang này không trả về secret.', unknown: 'Chưa cấu hình', queueWaiting: 'Đang chờ', queueActive: 'Đang chạy', queueFailed: 'Thất bại', windowHint: 'Cửa sổ 30 ngày. Người dùng hoạt động có session hợp lệ tạo trong kỳ. Lưu trữ gồm asset catalog và media.' },
   billing: { title: 'Gói dịch vụ & thanh toán', intro: 'Quản lý gói của workspace và xem hóa đơn.', plans: 'Các gói hiện có', current: 'Gói hiện tại', invoices: 'Hóa đơn', noSubscription: 'Chưa có gói dịch vụ', pending: 'Đang chờ xác minh thanh toán thủ công. Chưa cấp credit hoặc quyền lợi gói.', free: 'Kích hoạt gói miễn phí', request: 'Yêu cầu đăng ký', cancel: 'Hủy vào cuối kỳ', cancelConfirm: 'Giữ quyền truy cập đến hết kỳ hiện tại rồi hủy gói?', cancelRequest: 'Hủy yêu cầu', cancelRequestConfirm: 'Hủy yêu cầu đang chờ và vô hiệu hóa hóa đơn?', price: 'Giá', credits: 'Credit mỗi kỳ', brands: 'Giới hạn thương hiệu', members: 'Giới hạn thành viên', storage: 'Giới hạn lưu trữ', period: 'Kỳ thanh toán', state: 'Trạng thái', emptyInvoices: 'Chưa có hóa đơn', ownerOnly: 'Chỉ chủ workspace có thể thay đổi gói.', openSubscription: 'Hoàn tất hoặc hủy gói hiện tại trước khi chọn gói khác.', pendingRequest: 'Đã ghi nhận yêu cầu. Quản trị viên cần xác minh thanh toán trước khi kích hoạt.', activeRequest: 'Đã kích hoạt gói miễn phí.', monthly: 'Hàng tháng', yearly: 'Hàng năm', payment: 'Thanh toán', evidence: 'Cần xác minh thủ công' },
   media: {
@@ -362,12 +366,14 @@ const messages: Messages = {
     forgot: "Quên mật khẩu?",
     reset: "Đặt lại mật khẩu",
     verify: "Xác minh email",
-    resend: "Gửi lại email xác minh",
+    code: "Mã xác minh 6 chữ số",
+    resend: "Gửi lại mã xác minh",
     send: "Gửi liên kết bảo mật",
     google: "Tiếp tục với Google",
     haveAccount: "Đã có tài khoản?",
     noAccount: "Mới đến ContentFlow?",
     sent: "Nếu địa chỉ đủ điều kiện, email đã được gửi. Hãy kiểm tra hộp thư.",
+    codeSent: "Mã xác minh đã được gửi đến email. Mã có hiệu lực trong 10 phút.",
     verified: "Email đã được xác minh. Bạn có thể đăng nhập.",
     resetDone: "Đã đặt lại mật khẩu. Hãy đăng nhập với mật khẩu mới.",
     passwordHint: "Sử dụng từ 12–128 ký tự.",

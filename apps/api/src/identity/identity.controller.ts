@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { IdentityService } from './identity.service';
 import { AuthGuard, AuthRateGuard, type AuthRequest, OriginGuard, SuperAdminGuard } from './auth.guard';
-import { EmailDto, LoginDto, PasswordDto, ProfileDto, RegisterDto, ResetDto, TokenDto } from './identity.dto';
+import { EmailDto, LoginDto, PasswordDto, ProfileDto, RegisterDto, ResetDto, TokenDto, VerificationCodeDto } from './identity.dto';
 import { cookieOptions, readCookie, sessionResponse } from './cookies';
 import { GoogleOAuthService } from './oauth.service';
 import { PrismaService } from '../platform/prisma.service';
@@ -23,7 +23,8 @@ export class IdentityController {
   }
   @Post('logout') @HttpCode(200) @UseGuards(OriginGuard)
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) { response.clearCookie('cf_refresh', cookieOptions(this.production)); return this.identity.logout(readCookie(request, 'cf_refresh')); }
-  @Post('verify-email') @HttpCode(200) verify(@Body() dto: TokenDto) { return this.identity.consume(dto.token, 'VERIFY_EMAIL'); }
+  @Post('verify-email') @HttpCode(200) verify(@Body() dto: VerificationCodeDto) { return this.identity.consumeVerificationCode(dto.email, dto.code); }
+  @Post('verify-email-link') @HttpCode(200) verifyLegacyLink(@Body() dto: TokenDto) { return this.identity.consume(dto.token, 'VERIFY_EMAIL'); }
   @Post('resend-verification') @HttpCode(200) resend(@Body() dto: EmailDto) { return this.identity.requestToken(dto.email, 'VERIFY_EMAIL'); }
   @Post('forgot-password') @HttpCode(200) forgot(@Body() dto: EmailDto) { return this.identity.requestToken(dto.email, 'RESET_PASSWORD'); }
   @Post('reset-password') @HttpCode(200) reset(@Body() dto: ResetDto) { return this.identity.consume(dto.token, 'RESET_PASSWORD', dto.password); }

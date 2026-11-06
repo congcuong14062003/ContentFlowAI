@@ -94,6 +94,18 @@ model User {
   invitations     Invitation[] @relation("InvitedBy")
   auditEvents     AuditEvent[]
   contentRevisions ContentRevision[]
+  supportTickets SupportTicket[] @relation("SupportRequester")
+  supportAssignments SupportTicket[] @relation("SupportAssignee")
+  supportMessages SupportMessage[]
+  notifications SupportNotification[]
+  enteredCosts FinancialCost[]
+  contentOwned Content[] @relation("ContentOwner")
+  contentAssigned Content[] @relation("ContentAssignee")
+  contentReviews Content[] @relation("ContentReviewer")
+  requestedReviews Content[] @relation("ContentReviewRequester")
+  contentComments ContentComment[]
+  inboxNotifications Notification[]
+  notificationPreference NotificationPreference?
 }
 
 model OAuthIdentity {
@@ -173,6 +185,10 @@ model Workspace {
   aiRateWindow AiRateWindow?
   generatorQuotes GeneratorQuote[]
   generatorRuns GeneratorRun[]
+  supportTickets SupportTicket[]
+  financialCosts FinancialCost[]
+  contentComments ContentComment[]
+  inboxNotifications Notification[]
 }
 
 model Membership {
@@ -365,6 +381,10 @@ model Content {
   version     Int           @default(1)
   scheduledAt DateTime?     @db.Timestamptz(3)
   publishedAt DateTime?     @db.Timestamptz(3)
+  ownerId String? @db.Uuid
+  assigneeId String? @db.Uuid
+  reviewerId String? @db.Uuid
+  reviewRequesterId String? @db.Uuid
   createdAt   DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
@@ -372,12 +392,61 @@ model Content {
   campaign    Campaign?     @relation(fields: [workspaceId, campaignId], references: [workspaceId, id], onDelete: Restrict)
   revisions   ContentRevision[]
   generatedDrafts GeneratedDraft[]
+  owner User? @relation("ContentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  assignee User? @relation("ContentAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  reviewer User? @relation("ContentReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reviewRequester User? @relation("ContentReviewRequester", fields: [reviewRequesterId], references: [id], onDelete: Restrict)
+  comments ContentComment[]
 
   @@unique([workspaceId, id])
   @@index([workspaceId, status, createdAt, id])
   @@index([workspaceId, brandId])
   @@index([workspaceId, campaignId])
   @@index([workspaceId, scheduledAt, status])
+  @@index([workspaceId, assigneeId, status])
+}
+
+model ContentComment {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  contentId String @db.Uuid
+  authorId String @db.Uuid
+  body String @db.VarChar(5000)
+  mentions String[] @default([]) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  content Content @relation(fields: [workspaceId, contentId], references: [workspaceId, id], onDelete: Restrict)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  @@index([workspaceId, contentId, createdAt, id])
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  workspaceId String? @db.Uuid
+  eventType String @db.VarChar(40)
+  dedupeKey String @db.VarChar(160)
+  title String @db.VarChar(200)
+  body String @db.VarChar(1000)
+  url String @db.VarChar(500)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  archivedAt DateTime? @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  @@unique([userId, dedupeKey])
+  @@index([userId, archivedAt, createdAt, id])
+  @@index([workspaceId, createdAt])
+}
+
+model NotificationPreference {
+  userId String @id @db.Uuid
+  emailEnabled Boolean @default(false)
+  mutedTypes String[] @default([])
+  lowCreditThreshold BigInt?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 }
 
 model ContentRevision {
@@ -665,6 +734,7 @@ model Payment {
   status         PaymentStatus @default(PENDING)
   createdAt      DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+  collectedAt    DateTime?     @db.Timestamptz(3)
   workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
   subscription   Subscription? @relation(fields: [workspaceId, subscriptionId], references: [workspaceId, id], onDelete: Restrict)
   invoice        Invoice?      @relation(fields: [workspaceId, invoiceId], references: [workspaceId, id], onDelete: Restrict)
@@ -673,6 +743,71 @@ model Payment {
   @@unique([workspaceId, invoiceId])
   @@index([workspaceId, createdAt, id])
   @@index([workspaceId, subscriptionId])
+}
+
+model SupportTicket {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  requesterId String @db.Uuid
+  assigneeId String? @db.Uuid
+  subject String @db.VarChar(200)
+  kind String @default("SUPPORT") @db.VarChar(16)
+  status String @default("OPEN") @db.VarChar(20)
+  priority String @default("NORMAL") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  requester User @relation("SupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  assignee User? @relation("SupportAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  messages SupportMessage[]
+  notifications SupportNotification[]
+  @@unique([workspaceId, id])
+  @@index([workspaceId, createdAt, id])
+  @@index([status, priority, updatedAt])
+}
+
+model SupportMessage {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String @db.Uuid
+  ticketId String @db.Uuid
+  authorId String @db.Uuid
+  body String @db.VarChar(10000)
+  internal Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  ticket SupportTicket @relation(fields: [workspaceId, ticketId], references: [workspaceId, id], onDelete: Restrict)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  notification SupportNotification?
+  @@index([workspaceId, ticketId, createdAt, id])
+}
+
+model SupportNotification {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  workspaceId String @db.Uuid
+  ticketId String @db.Uuid
+  messageId String @unique @db.Uuid
+  readAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  ticket SupportTicket @relation(fields: [workspaceId, ticketId], references: [workspaceId, id], onDelete: Restrict)
+  message SupportMessage @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  @@index([userId, readAt, createdAt])
+}
+
+model FinancialCost {
+  id String @id @default(uuid()) @db.Uuid
+  workspaceId String? @db.Uuid
+  category String @db.VarChar(20)
+  amountMicros BigInt
+  incurredAt DateTime @db.Timestamptz(3)
+  sourceKey String @unique @db.VarChar(120)
+  note String @db.VarChar(500)
+  actorId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([category, incurredAt])
+  @@index([workspaceId, incurredAt])
 }
 
 model Invoice {

@@ -25,7 +25,7 @@ infra:up builds/starts PostgreSQL, Redis, real MinIO, initialization/migration j
 - MinIO console: http://localhost:59001 (local credentials in ignored .env).
 - Private development mail: .local/mail (never served by web/API).
 
-Register, open the verification link in the private mailbox, verify, sign in and create a workspace. The worker must run for mail delivery. There is no default user, administrator password or seeded business data.
+Register, enter the six-digit verification code sent by email, sign in and create a workspace. Codes expire after 10 minutes; resend from the verification screen if needed. In local mail mode, messages are written to `.local/mail`; in configured SMTP mode the worker sends real email. The worker must run for delivery. There is no default user, administrator password or seeded business data.
 
 For host hot reload instead of app containers:
 

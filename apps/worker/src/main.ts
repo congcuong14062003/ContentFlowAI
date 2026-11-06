@@ -8,6 +8,7 @@ import { startMailWorker } from '@contentflow/mail';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { startOutbox } from './mail-outbox';
+import { startNotificationJobs } from './notification-jobs';
 
 config({ path: ['.env', '../../.env'], quiet: true });
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -33,6 +34,7 @@ async function main() {
   const db = new PrismaClient(); await db.$connect();
   const outbox = startOutbox(db, process.env);
   await outbox.flush();
+  const notificationJobs=startNotificationJobs(db,connection,process.env,logger);
   // Linux container health file is refreshed only after successful Redis ping.
   const heartbeat = async () => {
     try { await Promise.all([connection.ping(), db.$queryRaw`SELECT 1`, outbox.flush()]); await writeFile(heartbeatPath, String(Date.now())); }
@@ -45,6 +47,7 @@ async function main() {
     if (stopping) return;
     stopping = true;
     clearInterval(timer);
+    notificationJobs.close();
     await outbox.close();
     await worker.close();
     await mail.close();

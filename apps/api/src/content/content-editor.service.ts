@@ -19,14 +19,14 @@ export class ContentEditorService {
   async list(workspaceId: string, actorId: string, query: PageQuery) {
     return this.db.$transaction(async tx => {
       await this.authorize(tx, workspaceId, actorId);
-      const rows = await tx.content.findMany({ where: { workspaceId, ...pageRange(query, `content:${workspaceId}`, true) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: query.limit + 1, select: { id: true, title: true, status: true, brandId: true, version: true, createdAt: true, updatedAt: true } });
+      const rows = await tx.content.findMany({ where: { workspaceId, ...pageRange(query, `content:${workspaceId}`, true) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: query.limit + 1, select: { id: true, title: true, status: true, brandId: true, ownerId: true, assigneeId: true, reviewerId: true, version: true, createdAt: true, updatedAt: true } });
       return cursorPage(rows, query, `content:${workspaceId}`);
     });
   }
   async read(workspaceId: string, actorId: string, id: string) {
     return this.db.$transaction(async tx => {
       await this.authorize(tx, workspaceId, actorId);
-      const row = await tx.content.findFirst({ where: { workspaceId, id }, select: { id: true, title: true, body: true, status: true, brandId: true, version: true, createdAt: true, updatedAt: true } });
+      const row = await tx.content.findFirst({ where: { workspaceId, id }, select: { id: true, title: true, body: true, status: true, brandId: true, ownerId: true, assigneeId: true, reviewerId: true, reviewRequesterId: true, version: true, createdAt: true, updatedAt: true } });
       if (!row) throw new NotFoundException();
       return row;
     });

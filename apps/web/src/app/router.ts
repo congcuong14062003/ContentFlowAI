@@ -22,6 +22,9 @@ export const router = createRouter({ history: createWebHistory(), routes: [
     { path: 'w/:workspaceId/calendar', component: () => import('../features/campaigns/CalendarPage.vue'), meta: { title: 'calendar.title' } },
     { path: 'w/:workspaceId/credits', component: () => import('../features/credits/CreditsPage.vue'), meta: { title: 'credits.title' } },
     { path: 'w/:workspaceId/billing', component: () => import('../features/billing/BillingPage.vue'), meta: { title: 'billing.title' } },
+    { path: 'w/:workspaceId/support', component: () => import('../features/support/SupportPage.vue'), props: { admin: false }, meta: { title: 'support.title' } },
+    { path: 'w/:workspaceId/activity', component: () => import('../features/workspaces/TeamActivity.vue'), meta: { title: 'team.activity' } },
+    { path: 'notifications', component: () => import('../features/notifications/NotificationPage.vue'), meta: { title: 'notifications.title' } },
     { path: 'w/:workspaceId/media', component: () => import('../features/media/MediaPage.vue'), meta: { title: 'media.title' } },
     { path: 'w/:workspaceId/brands', component: () => import('../features/catalog/CatalogList.vue'), props: { kind: 'brands' }, meta: { title: 'catalog.brands' } },
     { path: 'w/:workspaceId/brands/new', component: () => import('../features/catalog/BrandPage.vue'), meta: { title: 'catalog.createBrand' } },
@@ -35,7 +38,9 @@ export const router = createRouter({ history: createWebHistory(), routes: [
   { path: '/admin', component: AdminShell, meta: { authenticated: true, admin: true }, children: [
     { path: '', component: () => import('../features/admin/AdminOverview.vue'), meta: { title: 'admin.overview' } },
     { path: 'users', component: () => import('../features/admin/AdminUsers.vue'), meta: { title: 'admin.users' } },
-    { path: 'ai', component: () => import('../features/admin/AdminAi.vue'), meta: { title: 'admin.aiOperations' } }
+    { path: 'ai', component: () => import('../features/admin/AdminAi.vue'), meta: { title: 'admin.aiOperations' } },
+    { path: 'finance', component: () => import('../features/admin/AdminFinance.vue'), meta: { title: 'finance.title' } },
+    { path: 'support', component: () => import('../features/support/SupportPage.vue'), props: { admin: true }, meta: { title: 'support.title' } }
   ] },
   ...(import.meta.env.DEV ? [{ path: '/dev/components', component: () => import('../features/showcase/ShowcasePage.vue') }] : []),
   { path: '/:pathMatch(.*)*', redirect: '/workspaces' }

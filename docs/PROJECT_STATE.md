@@ -1,6 +1,20 @@
 # Project state
 
+## 2026-11-05 Email verification code correction
+
+Registration/resend now emails a six-digit code instead of a verification link. The code expires in 10 minutes, is HMAC-protected in the existing UserToken table, is invalidated by resend/consumption, and has five attempts per email per 10 minutes via Redis. Existing issued verification links retain a legacy endpoint. The vi/en auth screen now accepts email + code and registration opens that screen. Full verify passed (47 tests, 3 skipped; lint/typechecks/five builds), isolated real PostgreSQL/Redis/HTTP auth integration passed 18 scenarios including expiry, retries, resend and replay. Local API/web rebuilt and healthy. A fresh code for the one pending account matching MAIL_FROM was enqueued and the SMTP worker marked its outbox event published; mailbox receipt was not independently inspected.
+
+## 2026-11-05 Phase 13 collaboration/notifications checkpoint
+
+Implemented content ownership/assignees/comments/review decisions and tenant-scoped activity, persistent notification inbox/preferences, authenticated SSE with Redis pub/sub and reconnect resync, plus background reminders/credit/payment/subscription events. See `PHASE_13.md` for behavior and remaining acceptance. Full verify passed (47 tests, 3 opt-in skipped; lint/typechecks/five builds). Migration 14 applied to disposable PostgreSQL 17 with zero schema diff. Real PostgreSQL/Redis Phase 13 fixture passed role/security, dedupe, pub/sub/reconnect and four background event scenarios. Browser/HTTP/SSE and configured SMTP acceptance, hosted CI and production migration remain open; Phase 07–12 prior gaps remain open.
+
 Updated: 2026-11-05 (Asia/Saigon).
+
+## 2026-11-05 Phase 12 financial analytics/support subphase
+
+Phase 12 was requested. Implemented separate admin financial analytics and workspace/admin support interfaces. Backend provides authorized date-filtered revenue recognition, cash collection, current MRR, paying workspaces, plan/provider breakdown, AI/credit costs, manually entered storage/infrastructure costs with audit, partial/full known-cost contribution, trends and CSV. Refunds and missing cost sources show no data. Tickets support feedback, status/priority/assignee, public replies, internal notes, audit history, requester/tenant isolation and in-app reply notifications. See `PHASE_12.md` for exact definitions and remaining scope. Phase 12 is **incomplete** because refund events, cost-source reconciliation, browser/HTTP acceptance and deployment checks remain.
+
+Evidence: full verify passed (47 tests, 3 opt-in skipped; zero-warning lint, all typechecks, five builds) in an ephemeral local Docker tooling image with Node 22.22.0 and engine-strict override. The final finance UI date/axis adjustment then passed targeted lint, web typecheck and build. Additive migration 13 applied to disposable PostgreSQL 17 and Prisma schema diff was empty. Real database fixture passed finance/date/workspace/cost calculations and support authorization/reply/note/notification flows. No development/production DB migration, browser test or hosted CI is claimed. Phase 07–11 earlier gaps remain open.
 
 ## 2026-11-05 Phase 11 admin/AI-operations subphase
 

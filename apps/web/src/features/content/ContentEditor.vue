@@ -15,11 +15,12 @@ import UiButton from '../../components/ui/UiButton.vue';
 import UiInput from '../../components/ui/UiInput.vue';
 import UiState from '../../components/ui/UiState.vue';
 import UiDialog from '../../components/ui/UiDialog.vue';
+import CollaborationPanel from './CollaborationPanel.vue';
 import { toMarkdown } from './markdown';
 import type { GeneratorInput, GeneratorQuote, GeneratorRunRecord } from '../../../../../packages/shared/src/generator';
 const route = useRoute(); const router = useRouter(); const { t } = useI18n();
 const workspaceId = computed(() => String(route.params.workspaceId)); const id = computed(() => String(route.params.id)); const base = computed(() => `/workspaces/${workspaceId.value}/content/${id.value}`);
-interface Content { id: string; title: string; version: number; status: string; body: { editorDoc?: Record<string, unknown>; variation: { mainText: string; hook: string; cta: string; hashtags: string[] }; platform?: string; language?: 'vi' | 'en' }; brandId?: string }
+interface Content { id: string; title: string; version: number; status: string; body: { editorDoc?: Record<string, unknown>; variation: { mainText: string; hook: string; cta: string; hashtags: string[] }; platform?: string; language?: 'vi' | 'en' }; brandId?: string;ownerId:string|null;assigneeId:string|null;reviewerId:string|null }
 interface Revision { version: number; title: string | null; actorId: string | null; createdAt: string }
 const record = useQuery({ queryKey: computed(() => ['content', workspaceId.value, id.value]), queryFn: () => request<Content>(base.value) });
 const workspace = useQuery({ queryKey: computed(() => ['workspace-role', workspaceId.value]), queryFn: () => request<{ role: string }>(`/workspaces/${workspaceId.value}`) });
@@ -240,6 +241,18 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload));
         </p>
       </aside>
     </div>
+    <CollaborationPanel
+      v-if="record.data.value && workspace.data.value"
+      :workspace-id="workspaceId"
+      :content-id="id"
+      :version="version"
+      :status="record.data.value.status"
+      :owner-id="record.data.value.ownerId"
+      :assignee-id="record.data.value.assigneeId"
+      :reviewer-id="record.data.value.reviewerId"
+      :role="workspace.data.value.role"
+      @updated="record.refetch()"
+    />
     <UiDialog
       v-model="aiOpen"
       :title="t('content.assistant')"

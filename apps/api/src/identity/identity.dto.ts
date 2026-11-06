@@ -13,6 +13,7 @@ export class RegisterDto extends EmailDto {
   @IsOptional() @IsIn(['vi', 'en']) language?: string;
 }
 export class TokenDto { @IsString() @Matches(/^[A-Za-z0-9_-]{43}$/) token: string; }
+export class VerificationCodeDto extends EmailDto { @IsString() @Matches(/^\d{6}$/) code: string; }
 export class ResetDto extends TokenDto { @IsString() @Length(12, 128) password: string; }
 export class ProfileDto {
   @IsOptional() @IsString() @Length(1, 100) @Matches(/\S/) displayName?: string;

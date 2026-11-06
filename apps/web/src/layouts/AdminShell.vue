@@ -13,7 +13,7 @@ import UiSelect from '../components/ui/UiSelect.vue';
 
 const router = useRouter(); const route = useRoute(); const { t } = useI18n(); const preferences = usePreferences(); const session = useSession();
 const mobile = ref(false); const search = ref(''); const busy = ref(false);
-const links = computed(() => [{ to: '/admin', label: t('admin.overview') }, { to: '/admin/users', label: t('admin.users') }, { to: '/admin/ai', label: t('admin.aiOperations') }, { to: '/workspaces', label: t('admin.backToApp') }]);
+const links = computed(() => [{ to: '/admin', label: t('admin.overview') }, { to: '/admin/users', label: t('admin.users') }, { to: '/admin/ai', label: t('admin.aiOperations') }, { to: '/admin/finance', label: t('finance.title') }, { to: '/admin/support', label: t('support.title') }, { to: '/notifications', label: t('notifications.title') }, { to: '/workspaces', label: t('admin.backToApp') }]);
 const access = useQuery({ queryKey: ['admin-access'], queryFn: () => request<{ allowed: boolean }>('/admin/access') });
 const overview = useQuery({ queryKey: ['admin-overview'], queryFn: () => request<{ totals: { aiRequests: number; errorRate: number } }>('/admin/overview'), enabled: computed(() => access.data.value?.allowed === true) });
 function submitSearch() { const value = search.value.trim(); void router.push({ path: '/admin/users', query: value ? { search: value } : {} }); }

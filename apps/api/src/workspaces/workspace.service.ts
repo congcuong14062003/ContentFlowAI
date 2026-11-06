@@ -6,6 +6,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../identity/mail.service';
 import { IdentityService } from '../identity/identity.service';
+import { NotificationService } from '../notifications/notification.service';
 import type { Principal } from '../identity/auth.guard';
 import { digest, token } from '../identity/crypto';
 import { canGrant, requireManager } from './workspace.policy';
@@ -16,7 +17,7 @@ const invitationView = { id: true, email: true, role: true, expiresAt: true, acc
 
 @Injectable()
 export class WorkspaceService {
-  constructor(@Inject(PrismaService) private readonly db: PrismaService, @Inject(AuditService) private readonly audit: AuditService, @Inject(MailService) private readonly mail: MailService, @Inject(ConfigService) private readonly config: ConfigService, @Inject(IdentityService) private readonly identity: IdentityService) {}
+  constructor(@Inject(PrismaService) private readonly db: PrismaService, @Inject(AuditService) private readonly audit: AuditService, @Inject(MailService) private readonly mail: MailService, @Inject(ConfigService) private readonly config: ConfigService, @Inject(IdentityService) private readonly identity: IdentityService, @Inject(NotificationService) private readonly notifications: NotificationService) {}
   private async member(tx: Tx, workspaceId: string, userId: string) {
     const membership = await tx.membership.findFirst({ where: { workspaceId, userId, workspace: { archivedAt: null } } });
     if (!membership) throw new NotFoundException();
@@ -73,19 +74,21 @@ export class WorkspaceService {
     const profiles = new Map((await this.identity.publicProfiles(rows.map((row) => row.userId))).map((user) => [user.id, user]));
     return cursorPage(rows.map((row) => ({ ...row, user: profiles.get(row.userId)! })), query, scope);
   }
-  changeRole(id: string, userId: string, targetId: string, next: 'ADMIN' | 'EDITOR' | 'VIEWER', requestId: string) {
-    return this.mutate(id, userId, requestId, 'membership.role_changed', async (tx, role) => {
+  async changeRole(id: string, userId: string, targetId: string, next: 'ADMIN' | 'EDITOR' | 'VIEWER', requestId: string) {
+    const result=await this.mutate(id, userId, requestId, 'membership.role_changed', async (tx, role) => {
       const target = await tx.membership.findUnique({ where: { workspaceId_userId: { workspaceId: id, userId: targetId } } });
       if (!target) throw new NotFoundException(); canGrant(role, next, target.role);
       return tx.membership.update({ where: { id: target.id }, data: { role: next }, select: { id: true, userId: true, role: true } });
     });
+    await this.notifications.reset(targetId);return result;
   }
-  remove(id: string, userId: string, targetId: string, requestId: string) {
-    return this.mutate(id, userId, requestId, 'membership.removed', async (tx, role) => {
+  async remove(id: string, userId: string, targetId: string, requestId: string) {
+    const result=await this.mutate(id, userId, requestId, 'membership.removed', async (tx, role) => {
       const target = await tx.membership.findUnique({ where: { workspaceId_userId: { workspaceId: id, userId: targetId } } });
       if (!target) throw new NotFoundException(); canGrant(role, 'VIEWER', target.role);
       await tx.membership.delete({ where: { id: target.id } }); return { removed: true };
     });
+    await this.notifications.reset(targetId);return result;
   }
   async invitations(id: string, userId: string, query: PageQuery = new PageQuery()) {
     const member = await this.member(this.db, id, userId); requireManager(member.role); const scope = `invitations:${id}`;
@@ -93,12 +96,15 @@ export class WorkspaceService {
   }
   async invite(id: string, userId: string, dto: InvitationDto, requestId: string) {
     const raw = token();
-    return this.mutate(id, userId, requestId, 'invitation.created', async (tx, role) => {
+    const result=await this.mutate(id, userId, requestId, 'invitation.created', async (tx, role) => {
       canGrant(role, dto.role);
       const invitation = await tx.invitation.create({ data: { workspaceId: id, email: dto.email, role: dto.role, invitedById: userId, tokenHash: digest(raw), expiresAt: new Date(Date.now() + 7 * 86400000) }, select: invitationView });
       await this.mail.enqueue(tx, invitation.id, dto.email, 'ContentFlow AI: workspace invitation', `${this.config.get<string>('WEB_ORIGIN')}/invitations/accept#token=${raw}`);
-      return invitation;
+      const recipient=await tx.user.findFirst({where:{email:{equals:dto.email,mode:'insensitive'}},select:{id:true}});
+      const notice=recipient?await this.notifications.create(tx,{userId:recipient.id,workspaceId:id,eventType:'TEAM_INVITATION',dedupeKey:`invitation:${invitation.id}`,title:'Team invitation',body:'You have a workspace invitation. Check your email for the private acceptance link.',url:'/workspaces'},false):null;
+      return {invitation,notice};
     });
+    if(result.notice)await this.notifications.announce([result.notice]);return result.invitation;
   }
   revoke(id: string, userId: string, invitationId: string, requestId: string) {
     return this.mutate(id, userId, requestId, 'invitation.revoked', async (tx, role) => {
